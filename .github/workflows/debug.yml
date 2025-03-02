@@ -42,17 +42,6 @@ jobs:
         run: |
           vncserver :1 -geometry 1280x1024 -depth 24
 
-      - name: Setup Cloudflared
-        run: |
-          sleep 10
-          export https_proxy=http://127.0.0.1:7890 http_proxy=http://127.0.0.1:7890
-          wget -q https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -O cloudflared
-          chmod +x cloudflared
-          sudo mv cloudflared /usr/local/bin/
-          cloudflared tunnel --url http://127.0.0.1:6080 2>&1 | tee cloudflared.log &
-          sleep 10
-          cat cloudflared.log | grep "trycloudflare"
-
       - name: Test proxy
         env:
           http_proxy: "http://127.0.0.1:7890"
