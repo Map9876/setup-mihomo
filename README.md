@@ -1,3 +1,5 @@
+https://chat.deepseek.com/a/chat/s/8f675fff-f8fa-4d70-9692-e8cdbff6483d
+
 ```
 jobs:
   setup-proxy:
@@ -7,7 +9,9 @@ jobs:
         uses: actions/checkout@v3
 
       - name: Setup mihomo
-        uses: ./.github/actions/setup-mihomo
+       # uses: ./.github/actions/setup-mihomo yaml在自己储存库可以这样写
+        uses: Map9876/setup-v2ray@mm #这里的mm其实是GitHub action这些库的release的发布版本tags
+
         with:
           config-base64: ${{ secrets.CONFIG_BASE64 }} # 你的 Base64 编码的 YAML 配置文件
           mihomo-version: "1.18.0" # 可选，默认是 1.18.0
