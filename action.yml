@@ -51,6 +51,5 @@ runs:
       shell: bash
       run: |
         cd .mihomo
-        echo "external-controller: 127.0.0.1:9090" >> config.yaml
         echo "external-ui: ui" >> config.yaml
         ./mihomo -d . -f config.yaml &
