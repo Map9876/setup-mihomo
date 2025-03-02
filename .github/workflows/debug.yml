@@ -26,12 +26,20 @@ jobs:
           config-url: ${{ secrets.CONFIG_URL }} # clash yaml订阅链接
        #   config-base64: ${{ secrets.CONFIG_BASE64 }} # 你的 Base64 编码的 YAML 配置文件
           mihomo-version: "1.18.0" # 可选，默认是 1.18.0
-
-      - name: Test proxy
+      - name: cloudflared 
         run: |
           sleep 5
+          wget -q https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -O cloudflared
+          chmod +x cloudflared
+          sudo mv cloudflared /usr/local/bin/
+          cloudflared tunnel --url http://127.0.0.1:9090
+    
+      - name: Test proxy
+        run: |
+          sleep 20
           curl -X PUT http://127.0.0.1:9090/proxies/🔰%20选择节点 -d '{"name":"🇯🇵 免费-日本1-Ver.6"}'
           curl -x http://127.0.0.1:7890 https://api.live.bilibili.com/ip_service/v1/ip_service/get_ip_addr
+          sleep 300
         env:
           http_proxy: "http://127.0.0.1:7890"
           https_proxy: "http://127.0.0.1:7890"
