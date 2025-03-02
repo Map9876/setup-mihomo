@@ -75,4 +75,5 @@ jobs:
         run: |         
           #curl http://127.0.0.1:9090/ui/
           curl -x http://127.0.0.1:7890 https://api.live.bilibili.com/ip_service/v1/ip_service/get_ip_addr
+          curl https://abema.com     
           sleep 3000
