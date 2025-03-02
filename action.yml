@@ -3,7 +3,10 @@ description: Install mihomo (Clash Meta) and run it in the background using a YA
 inputs:
   config-base64:
     description: 'Base64 encoded YAML config file'
-    required: true
+    required: false
+  config-url:
+    description: 'yaml链接'
+    required: false
   mihomo-version:
     description: 'Version number of mihomo'
     required: false
@@ -25,8 +28,15 @@ runs:
       shell: bash
       run: |
         cd .mihomo
-        echo "${{ inputs.config-base64 }}" > config_enc.yaml
-        cat config_enc.yaml | base64 -d > config.yaml
+        if [ -n "${{ inputs.config-base64 }}" ]; then
+          echo "${{ inputs.config-base64 }}" > config_enc.yaml
+          cat config_enc.yaml | base64 -d > config.yaml
+        elif [ -n "${{ inputs.config-url }}" ]; then
+          wget -q -O config.yaml "${{ inputs.config-url }}"
+        else
+          echo "Error: Either config-base64 or config-url must be provided"
+          exit 1
+        fi
 
     - name: Start mihomo
       shell: bash
