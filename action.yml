@@ -42,7 +42,7 @@ runs:
       shell: bash
       run: |
         wget https://github.com/haishanh/yacd/releases/download/v0.3.8/yacd.tar.xz
-        tar -xzf yacd.tar.gz
+        tar -xzf yacd.tar.xz
         mv public yacd
         mkdir -p .mihomo/ui
         mv yacd/* .mihomo/ui/
