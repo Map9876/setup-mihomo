@@ -60,7 +60,7 @@ jobs:
         run: |
           curl -x http://127.0.0.1:7890 https://api.live.bilibili.com/ip_service/v1/ip_service/get_ip_addr
           curl https://abema.com
-          sleep 3000
+          
 
       - name: Set up Python3
         uses: actions/setup-python@v2
