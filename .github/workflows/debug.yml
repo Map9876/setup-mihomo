@@ -60,7 +60,7 @@ jobs:
       - name: cloudflared 
         run: |
           sleep 10
-          
+          export https_proxy=http://127.0.0.1:7890 http_proxy=http://127.0.0.1:7890
           wget -q https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -O cloudflared
           chmod +x cloudflared
           sudo mv cloudflared /usr/local/bin/
