@@ -41,7 +41,7 @@ runs:
     - name: Download Web UI (Yacd)bash  
       shell: bash
       run: |
-        wget https://github.com/haishanh/yacd/releases/latest/download/yacd.tar.gz
+        wget https://github.com/haishanh/yacd/releases/download/v0.3.8/yacd.tar.xz
         tar -xzf yacd.tar.gz
         mv public yacd
         mkdir -p .mihomo/ui
