@@ -23,7 +23,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y tigervnc-standalone-server firefox xterm novnc
+          sudo apt-get install -y tigervnc-standalone-server firefox xterm
 
       - name: Configure VNC
         run: |
@@ -42,18 +42,13 @@ jobs:
         run: |
           vncserver :1 -geometry 1280x1024 -depth 24
 
-      - name: Start noVNC
-        run: |
-          /usr/bin/websockify --web /usr/share/novnc 6080 localhost:5901 &
-          echo "noVNC 已启动，端口为 6080"
-
       - name: Setup Cloudflared
         run: |
-          sleep 5
+          sleep 10
+          export https_proxy=http://127.0.0.1:7890 http_proxy=http://127.0.0.1:7890
           wget -q https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -O cloudflared
           chmod +x cloudflared
           sudo mv cloudflared /usr/local/bin/
-          export https_proxy=http://127.0.0.1:7890 http_proxy=http://127.0.0.1:7890
           cloudflared tunnel --url http://127.0.0.1:6080 2>&1 | tee cloudflared.log &
           sleep 10
           cat cloudflared.log | grep "trycloudflare"
@@ -64,4 +59,65 @@ jobs:
           https_proxy: "http://127.0.0.1:7890"
         run: |
           curl -x http://127.0.0.1:7890 https://api.live.bilibili.com/ip_service/v1/ip_service/get_ip_addr
+          curl https://abema.com
           sleep 3000
+
+      - name: Set up Python3
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.x'
+
+      - name: Set up Chromedriver
+        uses: nanasess/setup-chromedriver@v2
+
+      - name: Start browser
+        run: |
+          export DISPLAY=:99
+          chromedriver --url-base=/wd/hub &
+          sudo Xvfb -ac :99 -screen 0 1280x1024x24 > /dev/null 2>&1 & # 可选
+
+      - name: Install Chrome
+        run: |
+          sudo wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
+          sudo apt update
+          sudo apt-get install -y google-chrome-stable
+
+      - name: Install requirements
+        run: |
+          python3 -m pip install --upgrade pip
+          pip3 install selenium
+
+      - name: Take screenshot of abema.com
+        run: |
+          export DISPLAY=:99
+          python3 - <<EOF
+          from selenium import webdriver
+          from selenium.webdriver.chrome.service import Service
+          from selenium.webdriver.common.by import By
+          import time
+
+          # 设置 Chrome 选项
+          options = webdriver.ChromeOptions()
+          options.add_argument('--no-sandbox')
+          options.add_argument('--disable-dev-shm-usage')
+          options.add_argument('--headless')  # 无头模式
+          options.add_argument('--disable-gpu')
+
+          # 启动 ChromeDriver
+          service = Service(executable_path='/usr/local/bin/chromedriver')
+          driver = webdriver.Chrome(service=service, options=options)
+
+          # 打开 abema.com
+          driver.get("https://abema.com")
+          time.sleep(5)  # 等待页面加载
+
+          # 截图
+          driver.save_screenshot('abema_screenshot.png')
+          driver.quit()
+          EOF
+
+      - name: Upload screenshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: abema-screenshot
+          path: abema_screenshot.png
