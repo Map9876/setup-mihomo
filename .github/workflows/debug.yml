@@ -97,7 +97,7 @@ jobs:
           driver = webdriver.Chrome(service=service, options=options)
 
           # 打开 abema.com
-          driver.get("https://abema.com")
+          driver.get("https://abema.tv/channels/isekai-anime/slots/F5Qu2ZckJu95vF")
           time.sleep(5)  # 等待页面加载
 
           # 截图
