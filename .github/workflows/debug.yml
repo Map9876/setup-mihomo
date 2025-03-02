@@ -64,7 +64,7 @@ jobs:
           wget -q https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -O cloudflared
           chmod +x cloudflared
           sudo mv cloudflared /usr/local/bin/
-          cloudflared tunnel --url http://127.0.0.1:5800 2>&1 | tee cloudflared.log &
+          cloudflared tunnel --url http://127.0.0.1:6080 2>&1 | tee cloudflared.log &
           sleep 10
           cat cloudflared.log | grep "trycloudflare"
     
