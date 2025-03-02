@@ -37,12 +37,13 @@ jobs:
           cat cloudflared.log | grep "trycloudflare"
     
       - name: Test proxy
-        run: |
-          
-          curl http://127.0.0.1:9090/ui/
-          curl -X PUT http://127.0.0.1:9090/proxies/🔰%20选择节点 -d '{"name":"🇯🇵 免费-日本4-Ver.7"}'
-          curl -x http://127.0.0.1:7890 https://api.live.bilibili.com/ip_service/v1/ip_service/get_ip_addr
-          sleep 300
         env:
           http_proxy: "http://127.0.0.1:7890"
           https_proxy: "http://127.0.0.1:7890"
+
+        run: |
+          
+          #curl http://127.0.0.1:9090/ui/
+          curl -X PUT http://127.0.0.1:9090/proxies/🔰%20选择节点 -d '{"name":"🇯🇵 免费-日本4-Ver.7"}'
+          curl -x http://127.0.0.1:7890 https://api.live.bilibili.com/ip_service/v1/ip_service/get_ip_addr
+          sleep 3000
