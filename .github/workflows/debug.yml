@@ -26,13 +26,46 @@ jobs:
           config-url: ${{ secrets.CONFIG_URL }} # clash yaml订阅链接
        #   config-base64: ${{ secrets.CONFIG_BASE64 }} # 你的 Base64 编码的 YAML 配置文件
           mihomo-version: "1.18.0" # 可选，默认是 1.18.0
+          
+          
+      - name: start proxy
+        run: |         
+          curl -X PUT http://127.0.0.1:9090/proxies/🔰%20选择节点 -d '{"name":"🇯🇵 免费-日本4-Ver.7"}'
+          
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y tigervnc-standalone-server firefox xterm
+      # 3. 配置VNC
+      - name: Configure VNC
+        run: |
+          mkdir -p ~/.vnc
+          echo "#!/bin/sh" > ~/.vnc/xstartup
+          echo "tigervncserver -xstartup /usr/bin/xterm" >> ~/.vnc/xstartup  # 启动xterm
+          echo "firefox &" >> ~/.vnc/xstartup  # 启动firefox
+          chmod +x ~/.vnc/xstartup
+      # 4. 设置VNC密码
+      - name: Set VNC password
+        run: |
+          echo "password" | vncpasswd -f > ~/.vnc/passwd
+          chmod 600 ~/.vnc/passwd
+      # 5. 启动VNC服务器
+      - name: Start VNC server
+        run: |         
+          vncserver :1 -geometry 1280x1024 -depth 24
+          
+                    
+                                        
+          
       - name: cloudflared 
         run: |
           sleep 5
+          
           wget -q https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -O cloudflared
           chmod +x cloudflared
           sudo mv cloudflared /usr/local/bin/
-          cloudflared tunnel --url http://127.0.0.1:9090 2>&1 | tee cloudflared.log &
+          export https_proxy=http://127.0.0.1:7890 http_proxy=http://127.0.0.1:7890
+          cloudflared tunnel --url http://127.0.0.1:5901 2>&1 | tee cloudflared.log &
           sleep 10
           cat cloudflared.log | grep "trycloudflare"
     
@@ -40,10 +73,7 @@ jobs:
         env:
           http_proxy: "http://127.0.0.1:7890"
           https_proxy: "http://127.0.0.1:7890"
-
-        run: |
-          
+        run: |         
           #curl http://127.0.0.1:9090/ui/
-          curl -X PUT http://127.0.0.1:9090/proxies/🔰%20选择节点 -d '{"name":"🇯🇵 免费-日本4-Ver.7"}'
           curl -x http://127.0.0.1:7890 https://api.live.bilibili.com/ip_service/v1/ip_service/get_ip_addr
           sleep 3000
