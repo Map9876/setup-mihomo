@@ -1,30 +1,35 @@
-name: Setup v2ray
-description: install v2ray and runs in background
+name: Setup Mihomo, input clash .yaml base64
+description: Install mihomo (Clash Meta) and run it in the background using a YAML config.
 inputs:
   config-base64:
-    description: 'base64 encoded config.json'
+    description: 'Base64 encoded YAML config file'
     required: true
-  v2ray-version:
-    description: 'version number of v2ray'
+  mihomo-version:
+    description: 'Version number of mihomo'
     required: false
-    default: "4.34.0"
+    default: "1.18.0"
 runs:
   using: "composite"
   steps:
-    - name: download v2ray
+    - name: Download mihomo
       shell: bash
       run: |
-        mkdir -p .v2ray
-        cd .v2ray
-        wget -q https://github.com/v2fly/v2ray-core/releases/download/v${{ inputs.v2ray-version }}/v2ray-linux-64.zip
-        unzip v2ray-linux-64.zip
-        chmod +x v2ray v2ctl
-    - name: write config file
+        mkdir -p .mihomo
+        cd .mihomo
+        wget -q https://github.com/MetaCubeX/mihomo/releases/download/v${{ inputs.mihomo-version }}/mihomo-linux-amd64-v${{ inputs.mihomo-version }}.gz
+        gzip -d mihomo-linux-amd64-v${{ inputs.mihomo-version }}.gz
+        mv mihomo-linux-amd64-v${{ inputs.mihomo-version }} mihomo
+        chmod +x mihomo
+
+    - name: Write YAML config file
       shell: bash
       run: |
-        cd .v2ray
-        echo "${{ inputs.config-base64 }}" > config_enc.json
-        cat config_enc.json | base64 -d > config.json
-    - name: start v2ray
+        cd .mihomo
+        echo "${{ inputs.config-base64 }}" > config_enc.yaml
+        cat config_enc.yaml | base64 -d > config.yaml
+
+    - name: Start mihomo
       shell: bash
-      run: .v2ray/v2ray --config=.v2ray/config.json &
+      run: |
+        cd .mihomo
+        ./mihomo -d . -f config.yaml &
