@@ -59,12 +59,11 @@ jobs:
           
       - name: cloudflared 
         run: |
-          sleep 5
+          sleep 10
           
           wget -q https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -O cloudflared
           chmod +x cloudflared
           sudo mv cloudflared /usr/local/bin/
-          export https_proxy=http://127.0.0.1:7890 http_proxy=http://127.0.0.1:7890
           cloudflared tunnel --url http://127.0.0.1:5901 2>&1 | tee cloudflared.log &
           sleep 10
           cat cloudflared.log | grep "trycloudflare"
