@@ -38,15 +38,17 @@ runs:
           exit 1
         fi
 
-    - name: Download Web UI (Yacd)
+    - name: Download Web UI (Yacd)bash  
+      shell: bash
       run: |
-       wget https://github.com/haishanh/yacd/releases/latest/download/yacd.tar.gz
-       tar -xzf yacd.tar.gz
-       mv public yacd
-       mkdir -p .mihomo/ui
-       mv yacd/* .mihomo/ui/
+        wget https://github.com/haishanh/yacd/releases/latest/download/yacd.tar.gz
+        tar -xzf yacd.tar.gz
+        mv public yacd
+        mkdir -p .mihomo/ui
+        mv yacd/* .mihomo/ui/
 
     - name: Start mihomo with Web UI
+      shell: bash
       run: |
         cd .mihomo
         echo "external-controller: 127.0.0.1:9090" >> config.yaml
