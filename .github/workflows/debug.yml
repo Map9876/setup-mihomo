@@ -26,90 +26,73 @@ jobs:
           echo "https_proxy=http://127.0.0.1:7890" >> $GITHUB_ENV
           echo "HTTP_PROXY=http://127.0.0.1:7890" >> $GITHUB_ENV
           echo "HTTPS_PROXY=http://127.0.0.1:7890" >> $GITHUB_ENV
+          echo 'export http_proxy=http://127.0.0.1:7890' >> ~/.bashrc
+          echo 'export https_proxy=http://127.0.0.1:7890' >> ~/.bashrc
+          echo 'export HTTP_PROXY=http://127.0.0.1:7890' >> ~/.bashrc
+          echo 'export HTTPS_PROXY=http://127.0.0.1:7890' >> ~/.bashrc
+          source ~/.bashrc
+          
 
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y tigervnc-standalone-server firefox xterm
+          sudo apt-get install -y \
+            apt-transport-https \
+            ca-certificates \
+            curl \
+            gnupg \
+            lsb-release
 
-      - name: Configure VNC
+      - name: Install Docker using official script
         run: |
-          mkdir -p ~/.vnc
-          echo "#!/bin/sh" > ~/.vnc/xstartup
-          echo "tigervncserver -xstartup /usr/bin/xterm" >> ~/.vnc/xstartup  # 启动 xterm
-          echo "firefox &" >> ~/.vnc/xstartup  # 启动 firefox
-          chmod +x ~/.vnc/xstartup
+          curl -fsSL https://get.docker.com -o get-docker.sh
+          sh get-docker.sh
 
-      - name: Set VNC password
+      - name: Create Firefox User-Agent config
         run: |
-          echo "password" | vncpasswd -f > ~/.vnc/passwd
-          chmod 600 ~/.vnc/passwd
+          mkdir -p ~/firefox-config
+          echo 'user_pref("general.useragent.override", "Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0 Mobile/15E148 Safari/604.1");' > ~/firefox-config/prefs.js
 
-      - name: Start VNC server
+      - name: Run Firefox in Docker
         run: |
-          vncserver :1 -geometry 1280x1024 -depth 24
+          docker run -d --name firefox \
+            -e TZ=Asia/Hong_Kong \
+            -e DISPLAY_WIDTH=1080 \
+            -e DISPLAY_HEIGHT=1920 \
+            -e KEEP_APP_RUNNING=1 \
+            -e ENABLE_CJK_FONT=1 \
+            -e VNC_PASSWORD=admin \
+            -p 5800:5800 -p 5900:5900 \
+            -v ~/firefox-config:/config/firefox:rw \
+            --shm-size 2g \
+            jlesage/firefox
 
-      - name: Test proxy
+      - name: Install Cloudflared
         run: |
-          curl https://api.live.bilibili.com/ip_service/v1/ip_service/get_ip_addr
-          curl https://abema.com
+          wget -q https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
+          sudo dpkg -i cloudflared-linux-amd64.deb
 
-      - name: Set up Python3
-        uses: actions/setup-python@v2
-        with:
-          python-version: '3.x'
-
-      - name: Set up Chromedriver
-        uses: nanasess/setup-chromedriver@v2
-
-      - name: Start browser
+      - name: Start Cloudflared
         run: |
-          export DISPLAY=:99
-          chromedriver --url-base=/wd/hub &
-          sudo Xvfb -ac :99 -screen 0 1280x1024x24 > /dev/null 2>&1 & # 可选
+          # 转发 noVNC 端口 5800
+          cloudflared tunnel --url http://localhost:5800 &          
+          # 获取并显示隧道URL
+          echo "等待Cloudflared隧道URL..."
+          sleep 10
+          ps aux | grep cloudflared
+          cat cloudflared.log | grep "trycloudflare"
 
-      - name: Install Chrome
+      - name: Keep Alive and Monitor
         run: |
-          sudo wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
-          sudo apt update
-          sudo apt-get install -y google-chrome-stable
-
-      - name: Install requirements
-        run: |
-          python3 -m pip install --upgrade pip
-          pip3 install selenium
-
-      - name: Take screenshot of abema.com
-        run: |
-          export DISPLAY=:99
-          python3 - <<EOF
-          from selenium import webdriver
-          from selenium.webdriver.chrome.service import Service
-          from selenium.webdriver.common.by import By
-          import time
-
-          # 设置 Chrome 选项
-          options = webdriver.ChromeOptions()
-          options.add_argument('--no-sandbox')
-          options.add_argument('--disable-dev-shm-usage')
-          options.add_argument('--headless')  # 无头模式
-          options.add_argument('--disable-gpu')
-
-          # 启动 ChromeDriver
-          service = Service(executable_path='/usr/local/bin/chromedriver')
-          driver = webdriver.Chrome(service=service, options=options)
-
-          # 打开 abema.com
-          driver.get("https://abema.tv/channels/isekai-anime/slots/F5Qu2ZckJu95vF")
-          time.sleep(5)  # 等待页面加载
-
-          # 截图
-          driver.save_screenshot('abema_screenshot.png')
-          driver.quit()
-          EOF
-
-      - name: Upload screenshot
-        uses: actions/upload-artifact@v4
-        with:
-          name: abema-screenshot
-          path: abema_screenshot.png
+          echo "=== Firefox VNC Server Information ==="
+          echo "noVNC端口: 5800"
+          echo "VNC端口: 5900"
+          echo "VNC密码: admin"
+          echo "说明: 使用浏览器连接时，主机地址使用上面cloudflared生成的域名"
+          echo "端口使用: 复制cloudflared URL后的端口号"
+          
+          while true; do
+            echo "=== Status Update $(date) ==="
+            docker ps
+            sleep 300
+          done
