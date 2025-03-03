@@ -80,7 +80,6 @@ jobs:
           echo "等待Cloudflared隧道URL..."
           sleep 10
           ps aux | grep cloudflared
-          cat cloudflared.log | grep "trycloudflare"
 
       - name: Keep Alive and Monitor
         run: |
