@@ -16,10 +16,47 @@ jobs:
           config-url: ${{ secrets.CONFIG_URL }} # Clash YAML 订阅链接
           mihomo-version: "1.18.0" # 可选，默认是 1.18.0
 
-      - name: Start proxy
+      - name: Install jq and bc
         run: |
-          curl -X PUT http://127.0.0.1:9090/proxies/🔰%20选择节点 -d '{"name":"🇯🇵 免费-日本4-Ver.7"}'
+          sudo apt-get update
+          sudo apt-get install -y jq bc
 
+      - name: Select fastest node
+        run: |
+          # 获取所有节点信息
+          response=$(curl -s http://127.0.0.1:9090/proxies/🔰%20选择节点)
+          echo "所有节点信息: $response"
+
+          # 提取节点名称
+          nodes=$(echo "$response" | jq -r '.all[]')
+          echo "可用节点: $nodes"
+
+          # 测试每个节点的延迟
+          fastest_node=""
+          min_delay=999999
+
+          for node in $nodes; do
+            echo "测试节点: $node"
+            delay=$(curl -o /dev/null -s -w "%{time_total}\n" -x http://127.0.0.1:7890 http://www.google.com --connect-timeout 2 --max-time 5)
+            echo "节点 $node 的延迟: $delay 秒"
+
+            # 比较延迟，选择最快的节点
+            if (( $(echo "$delay < $min_delay" | bc -l) )); then
+              min_delay=$delay
+              fastest_node=$node
+            fi
+          done
+
+          echo "最快节点: $fastest_node, 延迟: $min_delay 秒"
+
+          # 选择最快节点
+          curl -X PUT http://127.0.0.1:9090/proxies/🔰%20选择节点 -d "{\"name\":\"$fastest_node\"}"
+          echo "已选择最快节点: $fastest_node"
+
+      - name: Test proxy
+        run: |
+          curl -x http://127.0.0.1:7890 https://api.ip.sb/geoip
+          
       - name: Set global proxy environment variables
         run: |
           echo "http_proxy=http://127.0.0.1:7890" >> $GITHUB_ENV
@@ -93,3 +130,4 @@ jobs:
             docker ps
             sleep 300
           done
+              
