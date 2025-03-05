@@ -78,7 +78,6 @@ jobs:
           echo 'export HTTP_PROXY=http://127.0.0.1:7890' >> ~/.bashrc
           echo 'export HTTPS_PROXY=http://127.0.0.1:7890' >> ~/.bashrc
           source ~/.bashrc
-          
 
       - name: Install dependencies
         run: |
@@ -95,6 +94,20 @@ jobs:
           curl -fsSL https://get.docker.com -o get-docker.sh
           sh get-docker.sh
 
+      - name: Update Docker proxy settings
+        run: |
+          # 检查是否已经配置了代理
+          if ! grep -q "Environment=\"HTTP_PROXY=http://127.0.0.1:7890\"" /lib/systemd/system/docker.service; then
+            # 添加代理配置
+            sudo sed -i '/\[Service\]/a Environment="HTTP_PROXY=http://127.0.0.1:7890"' /lib/systemd/system/docker.service
+            sudo sed -i '/\[Service\]/a Environment="HTTPS_PROXY=http://127.0.0.1:7890"' /lib/systemd/system/docker.service
+            sudo systemctl daemon-reload
+            sudo systemctl restart docker
+            echo "Docker 代理配置已更新。"
+          else
+            echo "Docker 代理配置已存在，无需更新。"
+          fi
+
       - name: Create Firefox User-Agent config
         run: |
           mkdir -p ~/firefox-config
@@ -109,6 +122,10 @@ jobs:
             -e KEEP_APP_RUNNING=1 \
             -e ENABLE_CJK_FONT=1 \
             -e VNC_PASSWORD=admin \
+            -e http_proxy=http://127.0.0.1:7890 \
+            -e https_proxy=http://127.0.0.1:7890 \
+            -e HTTP_PROXY=http://127.0.0.1:7890 \
+            -e HTTPS_PROXY=http://127.0.0.1:7890 \
             -p 5800:5800 -p 5900:5900 \
             -v ~/firefox-config:/config/firefox:rw \
             --shm-size 2g \
@@ -122,12 +139,11 @@ jobs:
       - name: Start Cloudflared
         run: |
           # 转发 noVNC 端口 5800
-          cloudflared tunnel --url http://localhost:5800 &          
+          cloudflared tunnel --url http://localhost:5800 &
           # 获取并显示隧道URL
           echo "等待Cloudflared隧道URL..."
           sleep 10
           ps aux | grep cloudflared
-        #  cat cloudflared.log | grep "trycloudflare"
 
       - name: Keep Alive and Monitor
         run: |
@@ -137,7 +153,7 @@ jobs:
           echo "VNC密码: admin"
           echo "说明: 使用浏览器连接时，主机地址使用上面cloudflared生成的域名"
           echo "端口使用: 复制cloudflared URL后的端口号"
-          
+
           while true; do
             echo "=== Status Update $(date) ==="
             docker ps
