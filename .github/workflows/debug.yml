@@ -79,8 +79,20 @@ jobs:
           echo 'export HTTPS_PROXY=http://127.0.0.1:7890' >> ~/.bashrc
           source ~/.bashrc
 
+      - name: Configure APT proxy
+        run: |
+          # 创建 APT 代理配置文件
+          echo 'Acquire::http::Proxy "http://127.0.0.1:7890";' | sudo tee /etc/apt/apt.conf.d/99proxy
+          echo 'Acquire::https::Proxy "http://127.0.0.1:7890";' | sudo tee -a /etc/apt/apt.conf.d/99proxy
+
       - name: Install dependencies
         run: |
+          # 临时禁用代理
+          unset http_proxy
+          unset https_proxy
+          unset HTTP_PROXY
+          unset HTTPS_PROXY
+
           sudo apt-get update
           sudo apt-get install -y \
             apt-transport-https \
