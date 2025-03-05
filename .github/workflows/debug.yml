@@ -36,6 +36,12 @@ jobs:
           min_delay=999999
 
           for node in $nodes; do
+            # 跳过 DIRECT 节点
+            if [ "$node" == "DIRECT" ]; then
+              echo "跳过 DIRECT 节点"
+              continue
+            fi
+
             echo "测试节点: $node"
             delay=$(curl -o /dev/null -s -w "%{time_total}\n" -x http://127.0.0.1:7890 http://1.1.1.1 --connect-timeout 10 --max-time 10)
             if [ $? -ne 0 ]; then
@@ -121,7 +127,7 @@ jobs:
           echo "等待Cloudflared隧道URL..."
           sleep 10
           ps aux | grep cloudflared
-          cat cloudflared.log | grep "trycloudflare"
+        #  cat cloudflared.log | grep "trycloudflare"
 
       - name: Keep Alive and Monitor
         run: |
