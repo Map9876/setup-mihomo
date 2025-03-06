@@ -67,32 +67,8 @@ jobs:
         run: |
           curl -x http://127.0.0.1:7890 https://api.ip.sb/geoip
 
-      - name: Set global proxy environment variables
-        run: |
-          echo "http_proxy=http://127.0.0.1:7890" >> $GITHUB_ENV
-          echo "https_proxy=http://127.0.0.1:7890" >> $GITHUB_ENV
-          echo "HTTP_PROXY=http://127.0.0.1:7890" >> $GITHUB_ENV
-          echo "HTTPS_PROXY=http://127.0.0.1:7890" >> $GITHUB_ENV
-          echo 'export http_proxy=http://127.0.0.1:7890' >> ~/.bashrc
-          echo 'export https_proxy=http://127.0.0.1:7890' >> ~/.bashrc
-          echo 'export HTTP_PROXY=http://127.0.0.1:7890' >> ~/.bashrc
-          echo 'export HTTPS_PROXY=http://127.0.0.1:7890' >> ~/.bashrc
-          source ~/.bashrc
-
-      - name: Configure APT proxy
-        run: |
-          # 创建 APT 代理配置文件
-          echo 'Acquire::http::Proxy "http://127.0.0.1:7890";' | sudo tee /etc/apt/apt.conf.d/99proxy
-          echo 'Acquire::https::Proxy "http://127.0.0.1:7890";' | sudo tee -a /etc/apt/apt.conf.d/99proxy
-
       - name: Install dependencies
         run: |
-          # 临时禁用代理
-          unset http_proxy
-          unset https_proxy
-          unset HTTP_PROXY
-          unset HTTPS_PROXY
-
           sudo apt-get update
           sudo apt-get install -y \
             apt-transport-https \
@@ -106,26 +82,12 @@ jobs:
           curl -fsSL https://get.docker.com -o get-docker.sh
           sh get-docker.sh
 
-      - name: Update Docker proxy settings
-        run: |
-          # 检查是否已经配置了代理
-          if ! grep -q "Environment=\"HTTP_PROXY=http://127.0.0.1:7890\"" /lib/systemd/system/docker.service; then
-            # 添加代理配置
-            sudo sed -i '/\[Service\]/a Environment="HTTP_PROXY=http://127.0.0.1:7890"' /lib/systemd/system/docker.service
-            sudo sed -i '/\[Service\]/a Environment="HTTPS_PROXY=http://127.0.0.1:7890"' /lib/systemd/system/docker.service
-            sudo systemctl daemon-reload
-            sudo systemctl restart docker
-            echo "Docker 代理配置已更新。"
-          else
-            echo "Docker 代理配置已存在，无需更新。"
-          fi
-
       - name: Create Firefox User-Agent config
         run: |
           mkdir -p ~/firefox-config
           echo 'user_pref("general.useragent.override", "Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0 Mobile/15E148 Safari/604.1");' > ~/firefox-config/prefs.js
 
-      - name: Run Firefox in Docker
+      - name: Run Firefox in Docker with proxy
         run: |
           docker run -d --name firefox \
             -e TZ=Asia/Hong_Kong \
