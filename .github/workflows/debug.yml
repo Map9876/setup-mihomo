@@ -16,6 +16,23 @@ jobs:
           config-url: ${{ secrets.CONFIG_URL }} # Clash YAML 订阅链接
           mihomo-version: "1.18.0" # 可选，默认是 1.18.0
 
+      - name: Create and configure ~/.bash_profile
+        run: |
+          echo 'function proxy_on() {
+            export http_proxy=http://127.0.0.1:7890
+            export https_proxy=http://127.0.0.1:7890
+            export all_proxy=socks5://127.0.0.1:7890
+            echo -e "终端代理已开启"
+          }
+
+          function proxy_off(){
+            unset http_proxy https_proxy all_proxy
+            echo -e "终端代理已关闭"
+          }' > ~/.bash_profile
+
+          source ~/.bash_profile
+          proxy_on
+
       - name: Install jq and bc
         run: |
           sudo apt-get update
@@ -77,7 +94,6 @@ jobs:
             gnupg \
             lsb-release
 
-#novnc
       - name: Install VNC and Desktop Environment
         run: |
           sudo apt-get update
@@ -110,7 +126,7 @@ jobs:
           git clone https://github.com/novnc/noVNC.git
           cd noVNC
           ./utils/novnc_proxy --vnc localhost:5901 & #novnc web端口6080
-          
+
       - name: Install Cloudflared
         run: |
           wget -q https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
@@ -126,7 +142,7 @@ jobs:
 
       - name: Start Cloudflared for noVNC
         run: |
-          # 暴露 noVNC 端口 5800
+          # 暴露 noVNC 端口 6080
           cloudflared tunnel --url http://localhost:6080 &
           echo "等待 noVNC 的 Cloudflared 隧道URL..."
           sleep 10
@@ -135,9 +151,9 @@ jobs:
       - name: Keep Alive and Monitor
         run: |
           echo "=== Firefox VNC Server Information ==="
-          echo "noVNC端口: 5800"
-          echo "VNC端口: 5900"
-          echo "VNC密码: admin"
+          echo "noVNC端口: 6080"
+          echo "VNC端口: 5901"
+          echo "VNC密码: password"
           echo "说明: 使用浏览器连接时，主机地址使用上面cloudflared生成的域名"
           echo "端口使用: 复制cloudflared URL后的端口号"
 
