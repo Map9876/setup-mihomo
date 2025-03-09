@@ -77,30 +77,40 @@ jobs:
             gnupg \
             lsb-release
 
-      - name: Install Docker using official script
+#novnc
+      - name: Install VNC and Desktop Environment
         run: |
-          curl -fsSL https://get.docker.com -o get-docker.sh
-          sh get-docker.sh
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
+            xfce4 \
+            xfce4-goodies \
+            tightvncserver \
+            novnc \
+            python3 \
+            python3-pip \
+            git
 
-      - name: Create Firefox User-Agent config
+      - name: Configure VNC
         run: |
-          mkdir -p ~/firefox-config
-          echo 'user_pref("general.useragent.override", "Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0 Mobile/15E148 Safari/604.1");' > ~/firefox-config/prefs.js
+          mkdir -p ~/.vnc
+          echo "password" | vncpasswd -f > ~/.vnc/passwd
+          chmod 600 ~/.vnc/passwd
+          echo '#!/bin/bash
+          xrdb $HOME/.Xresources
+          startxfce4 &' > ~/.vnc/xstartup
+          chmod +x ~/.vnc/xstartup
 
-      - name: Run Firefox in Docker with proxy
+      - name: Start VNC Server
         run: |
-          docker run -d --name firefox \
-            -e TZ=Asia/Hong_Kong \
-            -e DISPLAY_WIDTH=1080 \
-            -e DISPLAY_HEIGHT=1920 \
-            -e KEEP_APP_RUNNING=1 \
-            -e ENABLE_CJK_FONT=1 \
-            -e VNC_PASSWORD=admin \
-            -p 5800:5800 -p 5900:5900 \
-            -v ~/firefox-config:/config/firefox:rw \
-            --shm-size 2g \
-            jlesage/firefox
+          vncserver :1 -geometry 1280x800 -depth 24
+          sleep 5  # Wait for VNC server to start properly
 
+      - name: Install and Setup noVNC
+        run: |
+          git clone https://github.com/novnc/noVNC.git
+          cd noVNC
+          ./utils/novnc_proxy --vnc localhost:5901 & #novnc web端口6080
+          
       - name: Install Cloudflared
         run: |
           wget -q https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
@@ -117,7 +127,7 @@ jobs:
       - name: Start Cloudflared for noVNC
         run: |
           # 暴露 noVNC 端口 5800
-          cloudflared tunnel --url http://localhost:5800 &
+          cloudflared tunnel --url http://localhost:6080 &
           echo "等待 noVNC 的 Cloudflared 隧道URL..."
           sleep 10
           ps aux | grep cloudflared
