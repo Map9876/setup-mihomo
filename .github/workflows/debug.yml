@@ -110,12 +110,19 @@ jobs:
           wget -q https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
           sudo dpkg -i cloudflared-linux-amd64.deb
 
-      - name: Start Cloudflared
+      - name: Start Cloudflared for Mihomo Web UI
         run: |
-          # 转发 noVNC 端口 5800
+          # 暴露 Mihomo Web UI 端口 9090
+          cloudflared tunnel --url http://localhost:9090 &
+          echo "等待 Mihomo Web UI 的 Cloudflared 隧道URL..."
+          sleep 10
+          ps aux | grep cloudflared
+
+      - name: Start Cloudflared for noVNC
+        run: |
+          # 暴露 noVNC 端口 5800
           cloudflared tunnel --url http://localhost:5800 &
-          # 获取并显示隧道URL
-          echo "等待Cloudflared隧道URL..."
+          echo "等待 noVNC 的 Cloudflared 隧道URL..."
           sleep 10
           ps aux | grep cloudflared
 
@@ -125,6 +132,11 @@ jobs:
           echo "noVNC端口: 5800"
           echo "VNC端口: 5900"
           echo "VNC密码: admin"
+          echo "说明: 使用浏览器连接时，主机地址使用上面cloudflared生成的域名"
+          echo "端口使用: 复制cloudflared URL后的端口号"
+
+          echo "=== Mihomo Web UI Information ==="
+          echo "Web UI端口: 9090"
           echo "说明: 使用浏览器连接时，主机地址使用上面cloudflared生成的域名"
           echo "端口使用: 复制cloudflared URL后的端口号"
 
