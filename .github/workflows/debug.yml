@@ -111,7 +111,7 @@ jobs:
       - name: Configure VNC
         run: |
           mkdir -p ~/.vnc
-          mkdir -p ～/.secret
+          mkdir .secret -p
           echo "password" | vncpasswd -f > ~/.secret/passvnc
           echo "password" | vncpasswd -f > ~/.vnc/passwd
           #这里是说把password作为密码，使用vncpasswd这个命令行程序，写入到passwd这个文本文件里面，如果打开passwd，可以看到它是乱码，所以并不能直接以txt打开它passwd文件，然后把password复制粘贴进去
