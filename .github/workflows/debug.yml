@@ -105,7 +105,8 @@ jobs:
             python3 \
             python3-pip \
             git \
-            firefox
+            firefox \
+            xterm
 
       - name: Configure VNC
         run: |
@@ -113,6 +114,7 @@ jobs:
           echo "password" | vncpasswd -f > ~/.vnc/passwd
           chmod 600 ~/.vnc/passwd
           echo '#!/bin/bash
+          xterm &
           firefox &' > ~/.vnc/xstartup
           chmod +x ~/.vnc/xstartup
 
