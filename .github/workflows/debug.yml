@@ -112,11 +112,16 @@ jobs:
         run: |
           mkdir -p ~/.vnc
           mkdir .secret -p
+          mkdir -p ~/.secret
+          mkdir -p /home/runner/.secret
+          ls -la ~/.secret  # 检查目录是否创建成功
+          chmod 755 ~  # 确保主目录有执行权限
+          chmod 755 ~/.secret  # 确保 .secret 目录有写权限
           echo "password" | vncpasswd -f > ~/.secret/passvnc
           echo "password" | vncpasswd -f > ~/.vnc/passwd
           #这里是说把password作为密码，使用vncpasswd这个命令行程序，写入到passwd这个文本文件里面，如果打开passwd，可以看到它是乱码，所以并不能直接以txt打开它passwd文件，然后把password复制粘贴进去
           chmod 600 ~/.vnc/passwd
-          
+          chmod 600 ~/.secret/passvnc
           echo '#!/bin/bash
           xterm &
           firefox &' > ~/.vnc/xstartup
