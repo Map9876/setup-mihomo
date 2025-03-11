@@ -85,6 +85,14 @@ jobs:
             gnupg \
             lsb-release
 
+      - name: Enable additional repositories
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y software-properties-common
+          sudo add-apt-repository universe
+          sudo add-apt-repository multiverse
+          sudo apt-get update
+
       - name: Install VNC and Desktop Environment
         run: |
           sudo apt-get update
@@ -98,9 +106,9 @@ jobs:
             git \
             firefox \
             xterm \
-            fonts-wqy-microhei \  # 安装中文字体
-            fonts-takao-mincho \  # 安装日文字体
-            fonts-takao-gothic
+            fonts-wqy-microhei \  # 中文字体
+            fonts-takao-mincho \  # 日文字体
+            fonts-takao-gothic    # 日文字体
 
       - name: Configure VNC
         run: |
