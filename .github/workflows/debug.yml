@@ -88,10 +88,6 @@ jobs:
       - name: Enable additional repositories
         run: |
           sudo apt-get update
-          sudo apt-get install -y software-properties-common
-          sudo add-apt-repository universe
-          sudo add-apt-repository multiverse
-          sudo apt-get update
 
       - name: Install VNC and Desktop Environment
         run: |
@@ -125,10 +121,10 @@ jobs:
           export http_proxy=http://127.0.0.1:7890
           export https_proxy=http://127.0.0.1:7890
           export all_proxy=socks5://127.0.0.1:7890
-          export LANG=zh_CN.UTF-8  # 设置语言环境为中文
-          export LANGUAGE=zh_CN:zh
-          export LC_ALL=zh_CN.UTF-8
-          xterm -fa "WenQuanYi Micro Hei Mono" -fs 14 &  # 使用中文字体
+          #export LANG=zh_CN.UTF-8  # 设置语言环境为中文
+          #export LANGUAGE=zh_CN:zh
+          #export LC_ALL=zh_CN.UTF-8
+          xterm &  # 使用中文字体
           sleep 5  # 等待 xterm 启动
           firefox &' > ~/.vnc/xstartup
           chmod +x ~/.vnc/xstartup
