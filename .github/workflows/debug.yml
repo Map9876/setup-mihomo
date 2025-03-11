@@ -122,7 +122,8 @@ jobs:
           #这里是说把password作为密码，使用vncpasswd这个命令行程序，写入到passwd这个文本文件里面，如果打开passwd，可以看到它是乱码，所以并不能直接以txt打开它passwd文件，然后把password复制粘贴进去
           chmod 600 ~/.vnc/passwd
           chmod 600 ~/.secret/passvnc
-          echo '#!/bin/bash           # 加载代理环境变量
+          echo '#!/bin/bash
+          # 加载代理环境变量
           source ~/.bash_profile
           export http_proxy=http://127.0.0.1:7890
           export https_proxy=http://127.0.0.1:7890
