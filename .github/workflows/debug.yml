@@ -125,9 +125,11 @@ jobs:
           export http_proxy=http://127.0.0.1:7890
           export https_proxy=http://127.0.0.1:7890
           export all_proxy=socks5://127.0.0.1:7890
+          export DISPLAY=:1
 
           # 启动桌面环境
           startxfce4 &
+          xhost +
 
           # 启动 Firefox
           export MOZ_USE_XINPUT2=1
