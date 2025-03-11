@@ -111,10 +111,7 @@ jobs:
             git \
             firefox \
             xterm \
-            xvfb \
-            libgtk-3-0 \
-            libasound2 \
-            libdbus-glib-1-2
+            xvfb
 
       # 10. 配置 VNC
       - name: Configure VNC
