@@ -106,10 +106,6 @@ jobs:
             git \
             firefox \
             xterm \
-            fonts-wqy-microhei \  # 中文字体
-            fonts-takao-mincho \  # 日文字体
-            fonts-takao-gothic    # 日文字体
-
       - name: Configure VNC
         run: |
           mkdir -p ~/.vnc
@@ -133,7 +129,7 @@ jobs:
           export LANGUAGE=zh_CN:zh
           export LC_ALL=zh_CN.UTF-8
           xterm -fa "WenQuanYi Micro Hei Mono" -fs 14 &  # 使用中文字体
-          sleep 2  # 等待 xterm 启动
+          sleep 5  # 等待 xterm 启动
           firefox &' > ~/.vnc/xstartup
           chmod +x ~/.vnc/xstartup
 
