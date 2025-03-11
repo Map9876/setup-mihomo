@@ -24,12 +24,10 @@ jobs:
             export all_proxy=socks5://127.0.0.1:7890
             echo -e "终端代理已开启"
           }
-
           function proxy_off(){
             unset http_proxy https_proxy all_proxy
             echo -e "终端代理已关闭"
           }' > ~/.bash_profile
-
           source ~/.bash_profile
           proxy_on
 
@@ -43,22 +41,18 @@ jobs:
           # 获取所有节点信息
           response=$(curl -s http://127.0.0.1:9090/proxies/🔰%20选择节点)
           echo "所有节点信息: $response"
-
           # 提取节点名称并进行 URL 编码
           nodes=$(echo "$response" | jq -r '.all[] | @uri')
           echo "可用节点: $nodes"
-
           # 测试每个节点的延迟
           fastest_node=""
           min_delay=999999
-
           for node in $nodes; do
             # 跳过 DIRECT 节点
             if [ "$node" == "DIRECT" ]; then
               echo "跳过 DIRECT 节点"
               continue
             fi
-
             echo "测试节点: $node"
             delay=$(curl -o /dev/null -s -w "%{time_total}\n" -x http://127.0.0.1:7890 http://1.1.1.1 --connect-timeout 10 --max-time 10)
             if [ $? -ne 0 ]; then
@@ -66,16 +60,13 @@ jobs:
               continue
             fi
             echo "节点 $node 的延迟: $delay 秒"
-
             # 比较延迟，选择最快的节点
             if (( $(echo "$delay < $min_delay" | bc -l) )); then
               min_delay=$delay
               fastest_node=$node
             fi
           done
-
           echo "最快节点: $fastest_node, 延迟: $min_delay 秒"
-
           # 选择最快节点
           curl -X PUT http://127.0.0.1:9090/proxies/🔰%20选择节点 -d "{\"name\":\"$(echo -n $fastest_node | jq -sRr @uri)\"}"
           echo "已选择最快节点: $fastest_node"
@@ -106,7 +97,10 @@ jobs:
             python3-pip \
             git \
             firefox \
-            xterm
+            xterm \
+            fonts-wqy-microhei \  # 安装中文字体
+            fonts-takao-mincho \  # 安装日文字体
+            fonts-takao-gothic
 
       - name: Configure VNC
         run: |
@@ -119,7 +113,6 @@ jobs:
           chmod 755 ~/.secret  # 确保 .secret 目录有写权限
           echo "password" | vncpasswd -f > ~/.secret/passvnc
           echo "password" | vncpasswd -f > ~/.vnc/passwd
-          #这里是说把password作为密码，使用vncpasswd这个命令行程序，写入到passwd这个文本文件里面，如果打开passwd，可以看到它是乱码，所以并不能直接以txt打开它passwd文件，然后把password复制粘贴进去
           chmod 600 ~/.vnc/passwd
           chmod 600 ~/.secret/passvnc
           echo '#!/bin/bash
@@ -128,8 +121,11 @@ jobs:
           export http_proxy=http://127.0.0.1:7890
           export https_proxy=http://127.0.0.1:7890
           export all_proxy=socks5://127.0.0.1:7890
-
-          xterm &
+          export LANG=zh_CN.UTF-8  # 设置语言环境为中文
+          export LANGUAGE=zh_CN:zh
+          export LC_ALL=zh_CN.UTF-8
+          xterm -fa "WenQuanYi Micro Hei Mono" -fs 14 &  # 使用中文字体
+          sleep 2  # 等待 xterm 启动
           firefox &' > ~/.vnc/xstartup
           chmod +x ~/.vnc/xstartup
 
@@ -148,6 +144,7 @@ jobs:
         run: |
           wget -q https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
           sudo dpkg -i cloudflared-linux-amd64.deb
+
       - name: Start Cloudflared for vnc
         run: |
           # 暴露 Mihomo Web UI 端口 9090
@@ -155,7 +152,6 @@ jobs:
           echo "等待 Mihomo Web UI 的 Cloudflared 隧道URL..."
           sleep 10
           ps aux | grep cloudflared
-
 
       - name: Start Cloudflared for Mihomo Web UI
         run: |
@@ -181,12 +177,10 @@ jobs:
           echo "VNC密码: password"
           echo "说明: 使用浏览器连接时，主机地址使用上面cloudflared生成的域名"
           echo "端口使用: 复制cloudflared URL后的端口号"
-
           echo "=== Mihomo Web UI Information ==="
           echo "Web UI端口: 9090"
           echo "说明: 使用浏览器连接时，主机地址使用上面cloudflared生成的域名"
           echo "端口使用: 复制cloudflared URL后的端口号"
-
           while true; do
             echo "=== Status Update $(date) ==="
             docker ps
