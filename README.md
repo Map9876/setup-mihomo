@@ -287,3 +287,213 @@ jobs:
           curl -x http://127.0.0.1:7890 https://api.live.bilibili.com/ip_service/v1/ip_service/get_ip_addr
           sleep 3000      
 ```   
+
+
+```yaml
+#2025031209005
+name: Debug Machine
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      # 1. 检出代码
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      # 2. 设置 Mihomo（Clash）
+      - name: Setup mihomo
+        uses: ./ # 使用当前仓库中的 action
+        with:
+          config-url: ${{ secrets.CONFIG_URL }} # Clash YAML 订阅链接
+          mihomo-version: "1.18.0" # 可选，默认是 1.18.0
+
+      # 3. 配置代理环境变量
+      - name: Create and configure ~/.bash_profile
+        run: |
+          echo 'function proxy_on() {
+            export http_proxy=http://127.0.0.1:7890
+            export https_proxy=http://127.0.0.1:7890
+            export all_proxy=socks5://127.0.0.1:7890
+            echo -e "终端代理已开启"
+          }
+          function proxy_off(){
+            unset http_proxy https_proxy all_proxy
+            echo -e "终端代理已关闭"
+          }' > ~/.bash_profile
+          source ~/.bash_profile
+          proxy_on
+
+      # 4. 安装 jq 和 bc（用于节点选择）
+      - name: Install jq and bc
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq bc
+
+      # 5. 选择最快的节点
+      - name: Select fastest node
+        run: |
+          # 获取所有节点信息
+          response=$(curl -s http://127.0.0.1:9090/proxies/🔰%20选择节点)
+          echo "所有节点信息: $response"
+          # 提取节点名称并进行 URL 编码
+          nodes=$(echo "$response" | jq -r '.all[] | @uri')
+          echo "可用节点: $nodes"
+          # 测试每个节点的延迟
+          fastest_node=""
+          min_delay=999999
+          for node in $nodes; do
+            # 跳过 DIRECT 节点
+            if [ "$node" == "DIRECT" ]; then
+              echo "跳过 DIRECT 节点"
+              continue
+            fi
+            echo "测试节点: $node"
+            delay=$(curl -o /dev/null -s -w "%{time_total}\n" -x http://127.0.0.1:7890 http://1.1.1.1 --connect-timeout 10 --max-time 10)
+            if [ $? -ne 0 ]; then
+              echo "节点 $node 不可用，跳过"
+              continue
+            fi
+            echo "节点 $node 的延迟: $delay 秒"
+            # 比较延迟，选择最快的节点
+            if (( $(echo "$delay < $min_delay" | bc -l) )); then
+              min_delay=$delay
+              fastest_node=$node
+            fi
+          done
+          echo "最快节点: $fastest_node, 延迟: $min_delay 秒"
+          # 选择最快节点
+          curl -X PUT http://127.0.0.1:9090/proxies/🔰%20选择节点 -d "{\"name\":\"$(echo -n $fastest_node | jq -sRr @uri)\"}"
+          echo "已选择最快节点: $fastest_node"
+
+      # 6. 测试代理
+      - name: Test proxy
+        run: |
+          curl -x http://127.0.0.1:7890 https://api.ip.sb/geoip
+
+      # 7. 安装依赖
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            apt-transport-https \
+            ca-certificates \
+            curl \
+            gnupg \
+            lsb-release
+
+      # 8. 启用额外仓库
+      - name: Enable additional repositories
+        run: |
+          sudo apt-get update
+
+      # 9. 安装 VNC 和桌面环境
+      - name: Install VNC and Desktop Environment
+        run: |
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
+            xfce4 \
+            xfce4-goodies \
+            tightvncserver \
+            novnc \
+            python3 \
+            python3-pip \
+            git \
+            firefox \
+            xterm \
+            xvfb
+
+      # 10. 配置 VNC
+      - name: Configure VNC
+        run: |
+          mkdir -p ~/.vnc
+          echo "password" | vncpasswd -f > ~/.vnc/passwd
+          chmod 600 ~/.vnc/passwd
+          echo '#!/bin/bash
+          # 加载代理环境变量
+          source ~/.bash_profile
+          export http_proxy=http://127.0.0.1:7890
+          export https_proxy=http://127.0.0.1:7890
+          export all_proxy=socks5://127.0.0.1:7890
+          export DISPLAY=:1
+
+          # 启动桌面环境
+          startxfce4 &
+          xhost +
+
+          # 启动 Firefox
+          export MOZ_USE_XINPUT2=1
+          export MOZ_WEBRENDER=1
+          firefox &' > ~/.vnc/xstartup
+          chmod +x ~/.vnc/xstartup
+
+      # 11. 启动 Xvfb（虚拟显示服务器）
+      - name: Start Xvfb
+        run: |
+          Xvfb :99 -screen 0 1280x800x24 &
+          export DISPLAY=:99
+
+      # 12. 启动 VNC 服务器
+      - name: Start VNC Server
+        run: |
+          vncserver :1 -geometry 1280x800 -depth 24
+          sleep 5  # 等待 VNC 服务器启动
+
+      # 13. 安装和配置 noVNC
+      - name: Install and Setup noVNC
+        run: |
+          git clone https://github.com/novnc/noVNC.git
+          cd noVNC
+          ./utils/novnc_proxy --vnc localhost:5901 & # noVNC web 端口 6080
+
+      # 14. 安装 Cloudflared
+      - name: Install Cloudflared
+        run: |
+          wget -q https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
+          sudo dpkg -i cloudflared-linux-amd64.deb
+
+      # 15. 启动 Cloudflared 暴露 VNC 服务
+      - name: Start Cloudflared for VNC
+        run: |
+          cloudflared tunnel --url tcp://localhost:5901 --protocol http2 &
+          echo "等待 VNC 的 Cloudflared 隧道URL..."
+          sleep 10
+          ps aux | grep cloudflared
+
+      # 16. 启动 Cloudflared 暴露 Mihomo Web UI
+      - name: Start Cloudflared for Mihomo Web UI
+        run: |
+          cloudflared tunnel --url http://localhost:9090 &
+          echo "等待 Mihomo Web UI 的 Cloudflared 隧道URL..."
+          sleep 10
+          ps aux | grep cloudflared
+
+      # 17. 启动 Cloudflared 暴露 noVNC
+      - name: Start Cloudflared for noVNC
+        run: |
+          cloudflared tunnel --url http://localhost:6080 --protocol http2 &
+          echo "等待 noVNC 的 Cloudflared 隧道URL..."
+          sleep 10
+          ps aux | grep cloudflared
+
+      # 18. 保持运行并监控
+      - name: Keep Alive and Monitor
+        run: |
+          echo "=== Firefox VNC Server Information ==="
+          echo "noVNC端口: 6080"
+          echo "VNC端口: 5901"
+          echo "VNC密码: password"
+          echo "说明: 使用浏览器连接时，主机地址使用上面cloudflared生成的域名"
+          echo "端口使用: 复制cloudflared URL后的端口号"
+          echo "=== Mihomo Web UI Information ==="
+          echo "Web UI端口: 9090"
+          echo "说明: 使用浏览器连接时，主机地址使用上面cloudflared生成的域名"
+          echo "端口使用: 复制cloudflared URL后的端口号"
+          while true; do
+            echo "=== Status Update $(date) ==="
+            sleep 300
+          done
+```
