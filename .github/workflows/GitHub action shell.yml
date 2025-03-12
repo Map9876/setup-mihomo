@@ -1,1 +1,78 @@
+name: Web Shell and File Download
 
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      # 1. 检出代码
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      # 2. 安装依赖
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            curl \
+            git \
+            python3 \
+            python3-pip \
+            nodejs \
+            npm
+
+      # 3. 安装 Web Shell（使用 wetty）
+      - name: Install Web Shell (wetty)
+        run: |
+          sudo npm install -g wetty
+          mkdir -p ~/web-shell
+          cd ~/web-shell
+          echo "Web Shell is running on port 3000" > index.html
+          wetty --port 3000 &
+
+      # 4. 安装 HTTP Server
+      - name: Install HTTP Server
+        run: |
+          sudo npm install -g http-server
+          mkdir -p ~/files
+          http-server ~/files -p 8080 &
+
+      # 5. 安装 Cloudflared
+      - name: Install Cloudflared
+        run: |
+          wget -q https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
+          sudo dpkg -i cloudflared-linux-amd64.deb
+
+      # 6. 启动 Cloudflared 暴露 Web Shell
+      - name: Start Cloudflared for Web Shell
+        run: |
+          cloudflared tunnel --url http://localhost:3000 &
+          echo "等待 Web Shell 的 Cloudflared 隧道URL..."
+          sleep 10
+          ps aux | grep cloudflared
+
+      # 7. 启动 Cloudflared 暴露 HTTP Server
+      - name: Start Cloudflared for HTTP Server
+        run: |
+          cloudflared tunnel --url http://localhost:8080 &
+          echo "等待 HTTP Server 的 Cloudflared 隧道URL..."
+          sleep 10
+          ps aux | grep cloudflared
+
+      # 8. 保持运行并监控
+      - name: Keep Alive and Monitor
+        run: |
+          echo "=== Web Shell Information ==="
+          echo "Web Shell端口: 3000"
+          echo "说明: 使用浏览器连接时，主机地址使用上面cloudflared生成的域名"
+          echo "端口使用: 复制cloudflared URL后的端口号"
+          echo "=== HTTP Server Information ==="
+          echo "HTTP Server端口: 8080"
+          echo "说明: 使用浏览器连接时，主机地址使用上面cloudflared生成的域名"
+          echo "端口使用: 复制cloudflared URL后的端口号"
+          while true; do
+            echo "=== Status Update $(date) ==="
+            sleep 300
+          done
