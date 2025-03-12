@@ -10,7 +10,7 @@ jobs:
 
       - name: Setup mihomo
        # uses: ./.github/actions/setup-mihomo yaml在自己储存库可以这样写
-        uses: Map9876/setup-v2ray@mm #这里的mm其实是GitHub action这些库的release的发布版本tags
+        uses: Map9876/setup-v2ray@vv #这里的@vv其实是GitHub action这些库的release的发布版本tags
 
         with:
          # config-base64: ${{ secrets.CONFIG_BASE64 }} # 你的 Base64 编码的 YAML 配置文件
