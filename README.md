@@ -13,7 +13,8 @@ jobs:
         uses: Map9876/setup-v2ray@mm #这里的mm其实是GitHub action这些库的release的发布版本tags
 
         with:
-          config-base64: ${{ secrets.CONFIG_BASE64 }} # 你的 Base64 编码的 YAML 配置文件
+         # config-base64: ${{ secrets.CONFIG_BASE64 }} # 你的 Base64 编码的 YAML 配置文件
+          config-url: ${ secrets.CONFIG_URL } #yaml订阅链接，上面这个yaml，base64太长了问题是。二选一最好用这个
           mihomo-version: "1.18.0" # 可选，默认是 1.18.0
 
       - name: Test proxy
