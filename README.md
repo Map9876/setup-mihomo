@@ -498,3 +498,26 @@ jobs:
             sleep 300
           done
 ```
+
+
+远程：
+
+```
+echo "admin" | vncpasswd -f > ~/.vnc/passwd # 这里admin是密码
+
+vncserver :1 -geometry 1280x1024 -depth 24
+
+cloudflared tunnel --url tcp://localhost:5901 --protocol http2 &
+#会打印出一个任意的链接，比如https://components-berkeley-recipient-chelsea.trycloudflare.com
+```
+
+本地：
+
+```
+apt install cloudflared
+
+cloudflared access tcp --url localhost:5091 --hostname https://components-berkeley-recipient-chelsea.trycloudflare.com
+#此处的链接是上方得到的链接
+
+#然后在vnc查看器，比如vnc viewer，avnc等，输入localhost 5091分别作为ip和端口，admin为密码即可。5091随便修改
+```
