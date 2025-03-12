@@ -1,4 +1,4 @@
-name: Web Shell and File Download
+name: Simple Web Command Executor
 
 on:
   workflow_dispatch:
@@ -16,38 +16,80 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            curl \
-            git \
             python3 \
             python3-pip \
-            nodejs \
             npm
 
-      # 3. 安装 Web Shell（使用 ttyd）
-      - name: Install Web Shell (ttyd)
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y ttyd
-          ttyd -p 3000 bash &
-
-      # 4. 安装 HTTP Server
+      # 3. 安装 HTTP Server
       - name: Install HTTP Server
         run: |
           sudo npm install -g http-server
           mkdir -p ~/files
           http-server ~/files -p 8080 &
 
-      # 5. 安装 Cloudflared
+      # 4. 安装 Cloudflared
       - name: Install Cloudflared
         run: |
           wget -q https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
           sudo dpkg -i cloudflared-linux-amd64.deb
 
-      # 6. 启动 Cloudflared 暴露 Web Shell
-      - name: Start Cloudflared for Web Shell
+      # 5. 启动 Python Web 服务器（支持 WebSocket）
+      - name: Start Python Web Server
+        run: |
+          mkdir -p ~/web-interface
+          cd ~/web-interface
+          echo '
+          import os
+          import subprocess
+          from flask import Flask, render_template_string
+          from flask_socketio import SocketIO
+
+          app = Flask(__name__)
+          socketio = SocketIO(app)
+
+          @app.route("/")
+          def index():
+              return render_template_string("""
+                  <h1>命令执行器</h1>
+                  <input type="text" id="command" placeholder="输入命令">
+                  <button onclick="sendCommand()">执行</button>
+                  <pre id="output"></pre>
+                  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+                  <script>
+                      const socket = io();
+                      const output = document.getElementById("output");
+
+                      function sendCommand() {
+                          const command = document.getElementById("command").value;
+                          socket.emit("execute_command", { command: command });
+                      }
+
+                      socket.on("command_output", function(data) {
+                          output.textContent += data.output + "\\n";
+                      });
+                  </script>
+              """)
+
+          @socketio.on("execute_command")
+          def handle_command(data):
+              command = data["command"]
+              process = subprocess.Popen(
+                  command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
+              )
+              for line in process.stdout:
+                  socketio.emit("command_output", {"output": line.strip()})
+
+          if __name__ == "__main__":
+              socketio.run(app, host="0.0.0.0", port=3000)
+          ' > app.py
+          pip3 install flask flask-socketio
+          python3 app.py &
+
+      # 6. 启动 Cloudflared 暴露 Python Web 服务器
+      - name: Start Cloudflared for Python Web Server
         run: |
           cloudflared tunnel --url http://localhost:3000 &
-          echo "等待 Web Shell 的 Cloudflared 隧道URL..."
+          echo "等待 Python Web 服务器的 Cloudflared 隧道URL..."
           sleep 10
           ps aux | grep cloudflared
 
@@ -62,11 +104,11 @@ jobs:
       # 8. 保持运行并监控
       - name: Keep Alive and Monitor
         run: |
-          echo "=== Web Shell Information ==="
-          echo "Web Shell端口: 3000"
+          echo "=== Python Web 服务器信息 ==="
+          echo "Web 服务器端口: 3000"
           echo "说明: 使用浏览器连接时，主机地址使用上面cloudflared生成的域名"
           echo "端口使用: 复制cloudflared URL后的端口号"
-          echo "=== HTTP Server Information ==="
+          echo "=== HTTP Server 信息 ==="
           echo "HTTP Server端口: 8080"
           echo "说明: 使用浏览器连接时，主机地址使用上面cloudflared生成的域名"
           echo "端口使用: 复制cloudflared URL后的端口号"
