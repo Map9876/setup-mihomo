@@ -23,14 +23,12 @@ jobs:
             nodejs \
             npm
 
-      # 3. 安装 Web Shell（使用 wetty）
-      - name: Install Web Shell (wetty)
+      # 3. 安装 Web Shell（使用 ttyd）
+      - name: Install Web Shell (ttyd)
         run: |
-          sudo npm install -g wetty
-          mkdir -p ~/web-shell
-          cd ~/web-shell
-          echo "Web Shell is running on port 3000" > index.html
-          wetty --port 3000 &
+          sudo apt-get update
+          sudo apt-get install -y ttyd
+          ttyd -p 3000 bash &
 
       # 4. 安装 HTTP Server
       - name: Install HTTP Server
