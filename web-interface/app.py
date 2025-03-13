@@ -39,4 +39,4 @@ def handle_command(data):
         socketio.emit("command_output", {"output": line.strip()})
 
 if __name__ == "__main__":
-    socketio.run(app, host="0.0.0.0", port=3000)
+    socketio.run(app, host="0.0.0.0", port=3000, allow_unsafe_werkzeug=True)
