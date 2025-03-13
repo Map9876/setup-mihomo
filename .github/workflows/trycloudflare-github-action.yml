@@ -25,7 +25,7 @@ jobs:
       # 3. 启动 Flask 服务器
       - name: Start Flask server
         run: |
-          python proxy.py &
+          python trycloudflare-github-action.py &
 
       # 4. 安装 Cloudflared 并暴露服务
       - name: Install Cloudflared
