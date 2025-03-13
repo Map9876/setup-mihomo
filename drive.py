@@ -12,6 +12,7 @@ import requests
 import itertools
 import json
 import argparse
+from datetime import datetime  # 新增：用于生成时间戳
 
 # 常量
 MAX_NUMBER_FILES = 50
@@ -212,8 +213,10 @@ def sub_main(data, output_dir):
             file_name = clean_filename(file_name)
             download_file(file_id, file_name, output_dir)
 
-    # 打包下载的文件
-    zip_file_path = os.path.join(output_dir, "downloaded_files.zip")
+    # 打包下载的文件，以时间命名压缩包
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")  # 生成时间戳
+    zip_file_name = f"downloaded_files_{timestamp}.zip"  # 以时间命名压缩包
+    zip_file_path = os.path.join(output_dir, zip_file_name)
     zip_directory(output_dir, zip_file_path)
     print(f"All files have been zipped to {zip_file_path}")
 
