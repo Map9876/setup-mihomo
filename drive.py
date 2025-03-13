@@ -317,7 +317,7 @@ def main():
     #cloudflare workers代理绑定的域名，实现 https://aaa.workers.dev/https://google.com实际上访问https://google.com，注意末尾带/斜杠
     if args.proxy is None:
         args.proxy = ""
-    args.proxy = "https://c.map987.us.kg/"
+   # args.proxy = "https://c.map987.us.kg/"
 
     download_folder(url=args.url, proxy_=args.proxy, output=args.output)
 
