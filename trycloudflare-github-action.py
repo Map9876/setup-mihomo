@@ -1,5 +1,6 @@
 import requests
 from flask import Flask, request, Response, stream_with_context
+from urllib.parse import urlparse
 
 app = Flask(__name__)
 
@@ -8,8 +9,16 @@ app = Flask(__name__)
 def proxy(url):
     """通用的反向代理。"""
     try:
+        # 解析传入的 URL
+        parsed_url = urlparse(url)
+
+        # 如果 URL 没有协议头，默认使用 HTTPS
+        if not parsed_url.scheme:
+            url = f"https://{url}"
+            parsed_url = urlparse(url)
+
         # 构造目标 URL
-        target_url = f"https://{url}"
+        target_url = parsed_url.geturl()
 
         # 获取客户端请求的头部信息
         headers = {key: value for (key, value) in request.headers if key.lower() != "host"}
