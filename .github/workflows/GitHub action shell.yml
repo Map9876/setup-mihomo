@@ -36,8 +36,8 @@ jobs:
       # 5. 启动 Python Web 服务器（支持 WebSocket 和文件列表）
       - name: Start Python Web Server
         run: |
-          mkdir -p ~/web-interface
-          cd ~/web-interface
+          mkdir -p web-interface
+          cd web-interface
           pip3 install flask flask-socketio
           python3 app.py &
 
