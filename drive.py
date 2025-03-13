@@ -3,6 +3,8 @@ import os.path as osp
 import re
 import sys
 import warnings
+import shutil
+import zipfile
 from typing import List, Union
 import collections
 import bs4
@@ -10,8 +12,10 @@ import requests
 import itertools
 import json
 import argparse
-#2025-02-05 02:06:29
+
+# 常量
 MAX_NUMBER_FILES = 50
+
 
 class _GoogleDriveFile(object):
     TYPE_FOLDER = "application/vnd.google-apps.folder"
@@ -30,15 +34,14 @@ def _parse_google_drive_file(url, content):
     """Extracts information about the current page file and its children."""
     folder_soup = bs4.BeautifulSoup(content, features="html.parser")
 
-    # finds the script tag with window['_DRIVE_ivd']
+    # 查找包含 _DRIVE_ivd 的 script 标签
     encoded_data = None
     for script in folder_soup.select("script"):
         inner_html = script.decode_contents()
 
         if "_DRIVE_ivd" in inner_html:
-            # first js string is _DRIVE_ivd, the second one is the encoded arr
+            # 第一个 js 字符串是 _DRIVE_ivd，第二个是编码的数组
             regex_iter = re.compile(r"'((?:[^'\\]|\\.)*)'").finditer(inner_html)
-            # get the second elem in the iter
             try:
                 encoded_data = next(itertools.islice(regex_iter, 1, None)).group(1)
             except StopIteration:
@@ -53,7 +56,7 @@ def _parse_google_drive_file(url, content):
             "Check FAQ in https://github.com/wkentaro/gdown?tab=readme-ov-file#faq.",
         )
 
-    # decodes the array and evaluates it as a python array
+    # 解码数组并解析为 Python 数组
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore", category=DeprecationWarning)
         decoded = encoded_data.encode("utf-8").decode("unicode_escape")
@@ -88,7 +91,6 @@ def _parse_google_drive_file(url, content):
 
 def _download_and_parse_google_drive_link(sess, url, proxy_, quiet=False, remaining_ok=False, verify=True):
     """Get folder structure of Google Drive folder URL."""
-
     return_code = True
     url_ = proxy_ + url
     for _ in range(2):
@@ -144,13 +146,12 @@ def _download_and_parse_google_drive_link(sess, url, proxy_, quiet=False, remain
                 "gdrive can't download more than this limit.",
             ]
         )
-       # raise FolderContentsMaximumLimitError(message)
+        raise RuntimeError(message)
     return return_code, gdrive_file
 
 
 def _get_directory_structure(gdrive_file, previous_path):
     """Converts a Google Drive folder structure into a local directory list."""
-
     directory_structure = []
     for file in gdrive_file.children:
         file.name = file.name.replace(osp.sep, "_")
@@ -163,148 +164,60 @@ def _get_directory_structure(gdrive_file, previous_path):
     return directory_structure
 
 
-GoogleDriveFileToDownload = collections.namedtuple(
-    "GoogleDriveFileToDownload", ("id", "path", "local_path")
-)
-
-
-def download_folder(proxy_, url=None, id=None, output=None, quiet=False, proxy=None, speed=None, use_cookies=True, remaining_ok=False, verify=True, user_agent=None, skip_download=False, resume=False) -> Union[List[str], List[GoogleDriveFileToDownload], None]:
-    if not (id is None) ^ (url is None):
-        raise ValueError("Either url or id has to be specified")
-    if id is not None:
-        url = "https://drive.google.com/drive/folders/{id}".format(id=id)
-    if user_agent is None:
-        # We need to use different user agent for folder download c.f., file
-        user_agent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.102 Safari/537.36"  # NOQA: E501
-
-    sess = requests.session()
-    sess.headers.update({'User-Agent': user_agent})
-
-    if not quiet:
-        print("Retrieving folder contents", file=sys.stderr)
-    is_success, gdrive_file = _download_and_parse_google_drive_link(
-        sess,
-        url,
-        quiet=quiet,
-        remaining_ok=remaining_ok,
-        verify=verify,
-        proxy_=proxy_,
-    )
-    if not is_success:
-        print("Failed to retrieve folder contents", file=sys.stderr)
-        return None
-
-    if not quiet:
-        print("Retrieving folder contents completed", file=sys.stderr)
-        print("Building directory structure", file=sys.stderr)
-    directory_structure = _get_directory_structure(gdrive_file, previous_path="")
-    if not quiet:
-        print("Building directory structure completed", file=sys.stderr)
-
-
-
-    print("——————————————————————————————————\n", directory_structure, "\n———————————文件列表完成———————————")
-    sub_main(directory_structure)
-    
-     #directory_structure是一个文件夹一个文件夹逐个打印
-"""
-    if output is None:
-        output = os.getcwd() + osp.sep
-    if output.endswith(osp.sep):
-        root_dir = osp.join(output, gdrive_file.name)
-    else:
-        root_dir = output
-    if not skip_download and not osp.exists(root_dir):
-        os.makedirs(root_dir)
-
-    files = []
-    for id, path in directory_structure:
-        #root_dir绝对路径
-
-        print(id, path, "测试点")
-        local_path = osp.join(root_dir, path)
-
-        if id is None:  # folder
-            if not skip_download and not osp.exists(local_path):
-                os.makedirs(local_path)
-            continue
-
-        if skip_download:
-            files.append(
-                GoogleDriveFileToDownload(id=id, path=path, local_path=local_path)
-            )
-        else:
-            if resume and os.path.isfile(local_path):
-                if not quiet:
-                    print(
-                        f"Skipping already downloaded file {local_path}",
-                        file=sys.stderr,
-                    )
-                files.append(local_path)
-                continue
-
-            local_path = download(
-                url=proxy_ + "https://drive.google.com/uc?id=" + id,
-                output=local_path,
-                quiet=quiet,
-                proxy=proxy,
-                speed=speed,
-                use_cookies=use_cookies,
-                verify=verify,
-                resume=resume,
-            )
-            if local_path is None:
-                if not quiet:
-                    print("Download ended unsuccessfully", file=sys.stderr)
-                return None
-            files.append(local_path)
-    if not quiet:
-        print("Download completed", file=sys.stderr)
-    return files
-"""
-#+++++++++++++
-
-def clean_filename(filename): 
-    try: 
-        new_filename = filename.encode('utf-8', 'ignore').decode('utf-8') 
-        
-        return new_filename 
-    except AttributeError: 
-        # 如果filename不是字符串类型（例如None），则直接返回 
+def clean_filename(filename):
+    """清理文件名中的非法字符。"""
+    try:
+        new_filename = filename.encode('utf-8', 'ignore').decode('utf-8')
+        return new_filename
+    except AttributeError:
         return filename
-        
-def download_file(file_id, file_name, save_path): 
-    url = f"https://c.map987.us.kg/https://drive.usercontent.google.com/download?id={file_id}&export=download&confirm=t"  
-    try: 
-        response = requests.get(url)  
-        if response.status_code  == 200: 
-            file_path = os.path.join(save_path,  file_name) 
-            dir_name = os.path.dirname(file_path)  
-            if not os.path.exists(dir_name):  
-                os.makedirs(dir_name)  
-            with open(file_path, 'wb') as f: 
-                f.write(response.content)  
-            print(f"Successfully downloaded {file_name} to {file_path}") 
-        else: 
-            print(f"Failed to download {file_name}, status code: {response.status_code}")  
-    except Exception as e: 
-        print(f"Error downloading {file_name}: {e}") 
 
-def sub_main(data, ):
-    for item in data: 
-        if item[0] is not None: 
+
+def download_file(file_id, file_name, save_path):
+    """下载单个文件。"""
+    url = f"https://drive.usercontent.google.com/download?id={file_id}&export=download&confirm=t"
+    try:
+        response = requests.get(url)
+        if response.status_code == 200:
+            file_path = os.path.join(save_path, file_name)
+            dir_name = os.path.dirname(file_path)
+            if not os.path.exists(dir_name):
+                os.makedirs(dir_name)
+            with open(file_path, 'wb') as f:
+                f.write(response.content)
+            print(f"Successfully downloaded {file_name} to {file_path}")
+        else:
+            print(f"Failed to download {file_name}, status code: {response.status_code}")
+    except Exception as e:
+        print(f"Error downloading {file_name}: {e}")
+
+
+def zip_directory(directory_path, output_zip_path):
+    """将目录打包为 ZIP 文件。"""
+    with zipfile.ZipFile(output_zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+        for root, dirs, files in os.walk(directory_path):
+            for file in files:
+                file_path = os.path.join(root, file)
+                arcname = os.path.relpath(file_path, directory_path)
+                zipf.write(file_path, arcname)
+    print(f"Successfully zipped {directory_path} to {output_zip_path}")
+
+
+def sub_main(data, output_dir):
+    """下载文件并打包为 ZIP 文件。"""
+    for item in data:
+        if item[0] is not None:
             file_id = item[0]
             file_name = item[1]
             file_name = clean_filename(file_name)
-            save_path = os.getcwd()
-            print(os.path.join(save_path,  file_name))
-            print("↑保存路径")
-            download_file(file_id, file_name, save_path) 
-            
-            
-            
-            
-#++++++++++
+            download_file(file_id, file_name, output_dir)
+
+    # 打包下载的文件
+    zip_file_path = os.path.join(output_dir, "downloaded_files.zip")
+    zip_directory(output_dir, zip_file_path)
+    print(f"All files have been zipped to {zip_file_path}")
+
+
 def main():
     parser = argparse.ArgumentParser(description='Download Google Drive folder using proxy')
     parser.add_argument('--url', type=str, required=True, help='谷歌文件夹链接')
@@ -312,55 +225,33 @@ def main():
     parser.add_argument('--output', type=str, default=None, help='输出文件夹')
     args = parser.parse_args()
 
-
-    
-    #cloudflare workers代理绑定的域名，实现 https://aaa.workers.dev/https://google.com实际上访问https://google.com，注意末尾带/斜杠
+    # 设置代理
     if args.proxy is None:
         args.proxy = ""
-   # args.proxy = "https://c.map987.us.kg/"
+    args.proxy = ""
 
-    download_folder(url=args.url, proxy_=args.proxy, output=args.output)
+    # 下载文件夹
+    is_success, gdrive_file = _download_and_parse_google_drive_link(
+        requests.session(),
+        args.url,
+        proxy_=args.proxy,
+    )
+    if not is_success:
+        print("Failed to retrieve folder contents", file=sys.stderr)
+        return
+
+    # 获取目录结构
+    directory_structure = _get_directory_structure(gdrive_file, previous_path="")
+
+    # 设置输出目录
+    if args.output is None:
+        args.output = os.getcwd()
+    if not os.path.exists(args.output):
+        os.makedirs(args.output)
+
+    # 下载文件并打包
+    sub_main(directory_structure, args.output)
 
 
 if __name__ == "__main__":
     main()
-
-
-
-"""
-    
-import os 
- 
-import re 
-def read_file(file_path): 
-    data = [] 
-    with open(file_path, 'r', encoding="UTF-8-sig") as f: 
-        lines = f.readlines()  
-        for line in lines: 
-            parts = eval(line.strip())  
-            data.extend(parts)  
-    return data 
- 
- 
-import requests 
- 
- 
-
-        
-def main(): 
-    file_path = "/storage/emulated/0/kkk.txt"  
-    data = read_file(file_path) 
-    save_path = "/storage/emulated/0/Download" 
-    for item in data: 
-        if item[0] is not None: 
-            file_id = item[0] 
-            print(file_id)
-            file_name = item[1]
-            file_name = clean_filename(file_name)
-            download_file(file_id, file_name, save_path) 
- 
- 
-if __name__ == "__main__": 
-    main() 
- 
-"""     
