@@ -1,4 +1,4 @@
-name: Simple Web Command Executor
+name: Combined Web Interface
 
 on:
   workflow_dispatch:
@@ -25,7 +25,7 @@ jobs:
         run: |
           sudo npm install -g http-server
           mkdir -p ~/files
-          http-server ~/files -p 8080 &
+          http-server ~/ -p 8080 &
 
       # 4. 安装 Cloudflared
       - name: Install Cloudflared
@@ -33,55 +33,11 @@ jobs:
           wget -q https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
           sudo dpkg -i cloudflared-linux-amd64.deb
 
-      # 5. 启动 Python Web 服务器（支持 WebSocket）
+      # 5. 启动 Python Web 服务器（支持 WebSocket 和文件列表）
       - name: Start Python Web Server
         run: |
           mkdir -p ~/web-interface
           cd ~/web-interface
-          echo '
-          import os
-          import subprocess
-          from flask import Flask, render_template_string
-          from flask_socketio import SocketIO
-
-          app = Flask(__name__)
-          socketio = SocketIO(app)
-
-          @app.route("/")
-          def index():
-              return render_template_string("""
-                  <h1>命令执行器</h1>
-                  <input type="text" id="command" placeholder="输入命令">
-                  <button onclick="sendCommand()">执行</button>
-                  <pre id="output"></pre>
-                  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
-                  <script>
-                      const socket = io();
-                      const output = document.getElementById("output");
-
-                      function sendCommand() {
-                          const command = document.getElementById("command").value;
-                          socket.emit("execute_command", { command: command });
-                      }
-
-                      socket.on("command_output", function(data) {
-                          output.textContent += data.output + "\\n";
-                      });
-                  </script>
-              """)
-
-          @socketio.on("execute_command")
-          def handle_command(data):
-              command = data["command"]
-              process = subprocess.Popen(
-                  command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
-              )
-              for line in process.stdout:
-                  socketio.emit("command_output", {"output": line.strip()})
-
-          if __name__ == "__main__":
-              socketio.run(app, host="0.0.0.0", port=3000, allow_unsafe_werkzeug=True)
-          ' > app.py
           pip3 install flask flask-socketio
           python3 app.py &
 
