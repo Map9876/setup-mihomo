@@ -1,0 +1,49 @@
+name: Reverse Proxy Server
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      # 1. 检出代码
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      # 2. 安装 Python 和依赖
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.9"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install flask requests
+
+      # 3. 启动 Flask 服务器
+      - name: Start Flask server
+        run: |
+          python proxy.py &
+
+      # 4. 安装 Cloudflared 并暴露服务
+      - name: Install Cloudflared
+        run: |
+          wget -q https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
+          sudo dpkg -i cloudflared-linux-amd64.deb
+
+      - name: Start Cloudflared tunnel
+        run: |
+          cloudflared tunnel --url http://localhost:3000 &
+          echo "等待 Cloudflared 隧道URL..."
+          sleep 10
+          ps aux | grep cloudflared
+
+      # 5. 保持运行
+      - name: Keep alive
+        run: |
+          while true; do
+            echo "反向代理服务器运行中..."
+            sleep 300
+          done
