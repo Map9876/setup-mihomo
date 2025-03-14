@@ -44,4 +44,5 @@ def proxy(url):
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=3000)
+    # 允许不安全地使用 Werkzeug（仅用于测试）
+    app.run(host="0.0.0.0", port=3000, allow_unsafe_werkzeug=True)
