@@ -44,5 +44,5 @@ def proxy(url):
 
 
 if __name__ == "__main__":
-    # 允许不安全地使用 Werkzeug（仅用于测试）
-    app.run(host="0.0.0.0", port=3000, allow_unsafe_werkzeug=True)
+    # 启动 Flask 服务器
+    app.run(host="0.0.0.0", port=3000)
