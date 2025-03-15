@@ -1,0 +1,71 @@
+name: Download and Upload Video
+
+on:
+  workflow_dispatch:  # 手动触发
+
+jobs:
+  download-and-upload:
+    runs-on: ubuntu-latest  # 使用最新的 Ubuntu 环境
+
+    steps:
+      # 1. 安装依赖
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+          sudo apt-get install -y yt-dlp
+
+      # 2. 下载 ysptp 并设置权限
+      - name: Download ysptp
+        run: |
+          wget https://github.com/wxhwz/ysptp/releases/download/20250313/ysptp_linux_amd64_20250313 -O ysptp
+          chmod 777 ysptp
+
+      # 3. 启动 ysptp 后台服务
+      - name: Run ysptp in background
+        run: |
+          ./ysptp &
+          sleep 10  # 等待 10 秒
+
+      # 4. 使用 yt-dlp 下载视频
+      - name: Download video with yt-dlp
+        run: |
+          mkdir -p video_output  # 创建输出文件夹
+          yt-dlp -o "video_output/video.mp4" "http://0.0.0.0:16384/ysptp/cctv2.m3u8" &
+          DOWNLOAD_PID=$!
+          sleep 30  # 等待 3 小时（10800 秒）
+          kill $DOWNLOAD_PID  # 结束下载
+
+      # 5. 安装 huggingface_hub
+      - name: Install huggingface_hub
+        run: |
+          pip install huggingface_hub
+
+      # 6. 上传视频到 Hugging Face Hub
+      - name: Upload video to Hugging Face Hub
+        env:
+          HUGGINGFACE_TOKEN: ${{ secrets.HUGGINGFACE_TOKEN }}  # 从 GitHub Secrets 获取 Hugging Face Token
+        run: |
+          python - <<EOF
+          from huggingface_hub import HfApi, login
+          import os
+
+          # 登录 Hugging Face
+          huggingface_token = os.environ["HUGGINGFACE_TOKEN"]
+          login(token=huggingface_token)
+
+          # 初始化 API
+          api = HfApi()
+          USERNAME = "servejjjhjj"  # 替换为你的 Hugging Face 用户名
+          REPO_NAME = "mp4-dataset"
+          REPO_TYPE = "dataset"
+
+          # 上传文件夹
+          api.upload_folder(
+              folder_path="video_output",
+              path_in_repo="",  # 上传到根目录
+              repo_id=f"{USERNAME}/{REPO_NAME}",
+              repo_type=REPO_TYPE,
+              token=huggingface_token
+          )
+          EOF
