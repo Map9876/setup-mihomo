@@ -1,6 +1,9 @@
 name: Download and Upload Video
 
 on:
+  schedule:
+    # 每天北京时间晚 6:30 执行
+    - cron: '30 10 * * *'  # UTC 时间 10:30 = 北京时间 18:30
   workflow_dispatch:  # 手动触发
 
 jobs:
@@ -12,9 +15,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y ffmpeg
-          sudo curl -L https://yt-dlp.org/downloads/latest/yt-dlp -o /usr/local/bin/yt-dlp
-          sudo chmod a+rx /usr/local/bin/yt-dlp
+          sudo apt-get install -y ffmpeg yt-dlp  # 使用 apt 安装 yt-dlp
           pip install huggingface_hub
 
       # 2. 下载 ysptp 并设置权限
