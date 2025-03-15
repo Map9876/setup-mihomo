@@ -4,7 +4,7 @@ import re
 from urllib.parse import unquote
 
 # 定义URL和请求头
-url = 'https://c.map987.us.kg/https://app.box.com/index.php?folder_id=307393495021&q%5Bshared_item%5D%5Bshared_name%5D=9kyetxelu85r7o3ipyytadxbygm0r8x9&rm=box_v2_zip_shared_folder'
+url = 'https://app.box.com/index.php?folder_id=307393495021&q%5Bshared_item%5D%5Bshared_name%5D=9kyetxelu85r7o3ipyytadxbygm0r8x9&rm=box_v2_zip_shared_folder'
 headers = {
     'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64; rv:135.0) Gecko/20100101 Firefox/135.0',
     'Accept': 'application/json, text/plain, */*',
@@ -176,7 +176,7 @@ def download_file(url, target=None, use_proxy=False):
     """
     # 如果启用代理前置，则在 URL 前添加代理前缀
     if use_proxy:
-        proxy_prefix = "https://c.map987.us.kg/"
+        proxy_prefix = ""
         url = proxy_prefix + url  # 直接拼接代理前缀和原始 URL
         print(f"使用代理前置后的 URL: {url}")
 
