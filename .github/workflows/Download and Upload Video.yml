@@ -5,6 +5,7 @@ on:
     # 每天北京时间晚 6:30 执行
     - cron: '30 10 * * *'  # UTC 时间 10:30 = 北京时间 18:30
   workflow_dispatch:  # 手动触发
+  push:
 
 jobs:
   download-and-upload:
@@ -34,13 +35,12 @@ jobs:
           ./ysptp &
           sleep 10  # 等待 10 秒
 
-      # 5. 运行 Python 脚本
-      - name: Run Python script
+      # 5. 写入 Python 脚本并执行
+      - name: Write and run Python script
         env:
           HUGGINGFACE_TOKEN: ${{ secrets.HUGGINGFACE_TOKEN }}  # 从 GitHub Secrets 获取 Hugging Face Token
         run: |
-          mkdir video_output
-          python3 - <<EOF
+          cat << 'EOF' > download_and_upload.py
           import os
           import subprocess
           import time
@@ -90,7 +90,7 @@ jobs:
                   VIDEO_URL,
                   "-o", f"{OUTPUT_FOLDER}/video_%(epoch)s.mp4",
                   "--force-keyframes-at-cuts",  # 确保分段时关键帧对齐
-                  "--split-interval", "600",  # 每 10 分钟分段一次（600 秒）
+                  "--split-interval", "20",  # 每 10 分钟分段一次（600 秒）
                   "--no-continue",  # 不继续未完成的下载
                   "--no-playlist",  # 仅下载单个视频
                   "--retries", "10",  # 重试次数
@@ -105,6 +105,10 @@ jobs:
                       break
                   if output:
                       print(output.strip().decode())
+
+              # 等待 yt-dlp 完成合并
+              process.wait()
+              print("yt-dlp process completed.")
 
           def monitor_and_upload():
               """
@@ -145,7 +149,14 @@ jobs:
               upload_thread = threading.Thread(target=monitor_and_upload)
               upload_thread.start()
 
-              # 等待 3 小时后结束
-              time.sleep(10800)  # 3 小时 = 10800 秒
-              print("Process completed after 3 hours.")
+              # 等待下载线程完成
+              download_thread.join()
+              print("Download thread completed.")
+
+              # 等待上传线程完成
+              upload_thread.join()
+              print("Upload thread completed.")
           EOF
+
+          # 执行 Python 脚本
+          python3 download_and_upload.py
