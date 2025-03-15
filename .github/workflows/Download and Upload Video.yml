@@ -40,6 +40,7 @@ jobs:
         env:
           HUGGINGFACE_TOKEN: ${{ secrets.HUGGINGFACE_TOKEN }}  # 从 GitHub Secrets 获取 Hugging Face Token
         run: |
+          mkdir video_output
           cat << 'EOF' > download_and_upload.py
           import os
           import subprocess
