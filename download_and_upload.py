@@ -47,7 +47,7 @@ def download_video():
         VIDEO_URL,
         "-o", f"{OUTPUT_FOLDER}/video_%(epoch)s.mp4",
         "--force-keyframes-at-cuts",  # 确保分段时关键帧对齐
-        "--split-interval", "10",   # 每 10 分钟分段一次300
+        "--split-interval", "600",   # 每 10 分钟分段一次300
         "--no-continue",  # 不继续未完成的下载
         "--no-playlist",  # 仅下载单个视频
         "--retries", "10",  # 重试次数
@@ -103,5 +103,5 @@ if __name__ == "__main__":
     upload_thread.start()
 
     # 等待 3 小时后结束
-    time.sleep(40)  # 3 小时 = 10800 秒
+    time.sleep(10800)  # 3 小时 = 10800 秒
     print("Process completed after 3 hours.")
