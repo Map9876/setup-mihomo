@@ -249,11 +249,15 @@ def main():
     # 设置输出目录
     if args.output is None:
         args.output = os.getcwd()
-    if not os.path.exists(args.output):
-        os.makedirs(args.output)
+    
+    # 创建以时间命名的文件夹
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    output_dir = os.path.join(args.output, f"download_{timestamp}")
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
 
     # 下载文件并打包
-    sub_main(directory_structure, args.output)
+    sub_main(directory_structure, output_dir)
 
 
 if __name__ == "__main__":
