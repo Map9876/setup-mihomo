@@ -181,7 +181,7 @@ jobs:
       # 17. 启动 Cloudflared 暴露 noVNC
       - name: Start Cloudflared for noVNC
         run: |
-          cloudflared tunnel --url tcp://localhost:6080 --protocol http2 &
+          cloudflared tunnel --url http://localhost:6080 --protocol http2 &
           echo "等待 noVNC 的 Cloudflared 隧道URL..."
           sleep 10
           ps aux | grep cloudflared
