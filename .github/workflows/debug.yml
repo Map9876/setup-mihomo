@@ -17,62 +17,6 @@ jobs:
           config-url: ${{ secrets.CONFIG_URL }}
           mihomo-version: "1.18.0"
 
-      - name: Configure proxy env
-        run: |
-          echo 'function proxy_on() {
-            export http_proxy=http://127.0.0.1:7890
-            export https_proxy=http://127.0.0.1:7890
-            export all_proxy=socks5://127.0.0.1:7890
-          }' >> ~/.bashrc
-          source ~/.bashrc
-          proxy_on
-
-      # ========== 新增剪贴板配置（保持密码不变）==========
-      - name: Enhance VNC Clipboard
-        run: |
-          # 安装剪贴板支持组件
-          sudo apt-get install -y xclip xsel
-
-          # 配置VNC剪贴板（不修改密码）
-          mkdir -p ~/.vnc
-          echo -e "SendPrimary=1\nAcceptCutText=1\nSendCutText=1" > ~/.vnc/config
-
-          # 更新xstartup（保持原有代理配置）
-          sed -i '/startxfce4/i \
-          # 剪贴板守护进程（新增）\
-          vncconfig -nowin -set SendPrimary=1 -set AcceptCutText=1 -set SendCutText=1 \&\
-          ' ~/.vnc/xstartup
-
-          # 浏览器剪贴板兼容性配置（新增）
-          sed -i '/firefox/i \
-          export MOZ_ENABLE_WAYLAND=0\
-          export GDK_BACKEND=x11\
-          ' ~/.vnc/xstartup
-
-      # ========== 原有服务配置（仅增强参数）==========
-      - name: Start VNC Server
-        run: |
-          vncserver :1 -geometry 1280x800 -depth 24 \
-            -SendCutText=1 \      # 新增参数
-            -AcceptCutText=1 \    # 新增参数
-            -Clipboard=1          # 新增参数
-          sleep 5
-
-      # ========== 新增剪贴板验证步骤 ==========
-      - name: Verify Clipboard
-        run: |
-          # 写入测试内容到服务器剪贴板
-          echo "VNC_CLIPBOARD_TEST" | xclip -selection clipboard
-          
-          # 从客户端读取验证（模拟）
-          echo "请手动验证客户端剪贴板是否包含: VNC_CLIPBOARD_TEST"
-          
-          # 保持服务运行（原有配置） 
-          while true; do
-            echo "[$(date)] 服务运行中..."
-            sleep 300
-          done
-
       # ========== 以下为原有配置（完全不变）==========
       - name: Install jq and bc
         run: |
@@ -113,7 +57,86 @@ jobs:
             xfce4-goodies \
             tightvncserver \
             novnc \
-            firefox
+            firefox \
+            xclip
+            
+      - name: Configure proxy env
+        run: |
+          echo 'function proxy_on() {
+            export http_proxy=http://127.0.0.1:7890
+            export https_proxy=http://127.0.0.1:7890
+            export all_proxy=socks5://127.0.0.1:7890
+            echo -e "终端代理已开启"
+          }
+          function proxy_off(){
+            unset http_proxy https_proxy all_proxy
+            echo -e "终端代理已关闭"
+          }' > ~/.bash_profile
+          source ~/.bash_profile
+          proxy_on
+
+      # ========== 新增剪贴板配置（保持密码不变）==========
+      - name: Enhance VNC Clipboard
+        run: |
+          # 安装剪贴板支持组件
+          sudo apt-get install -y xclip xsel
+
+          # 配置VNC剪贴板（不修改密码）
+          mkdir -p ~/.vnc
+          echo -e "SendPrimary=1\nAcceptCutText=1\nSendCutText=1" > ~/.vnc/config
+          
+          
+          
+          echo '#!/bin/bash
+          # 加载代理环境变量
+          source ~/.bash_profile
+          export http_proxy=http://127.0.0.1:7890
+          export https_proxy=http://127.0.0.1:7890
+          export all_proxy=socks5://127.0.0.1:7890
+          export DISPLAY=:1
+
+          # 启动桌面环境
+          startxfce4 &
+          xhost +
+          vncconfig -nowin -set SendPrimary=1 -set AcceptCutText=1 -set SendCutText=1 &
+          export MOZ_ENABLE_WAYLAND=0
+          export GDK_BACKEND=x11
+          firefox &
+          ' > ~/.vnc/xstartup
+          chmod +x ~/.vnc/xstartup
+
+      # ========== 原有服务配置（仅增强参数）==========
+      - name: Start VNC Server
+        run: |
+          vncserver :1 -geometry 1280x800 -depth 24 \
+            -SendCutText=1 \      # 新增参数
+            -AcceptCutText=1 \    # 新增参数
+            -Clipboard=1          # 新增参数
+          sleep 5
+          
+      - name: Configure noVNC
+        run: |
+          git clone https://github.com/novnc/noVNC.git
+          cd noVNC
+          ./utils/novnc_proxy --vnc localhost:5901 & # 严格保留原始注释
+          echo "noVNC服务已启动：6080端口"
+          
+      # ========== 新增剪贴板验证步骤 ==========
+      - name: Verify Clipboard
+        run: |
+          # 写入测试内容到服务器剪贴板
+          echo "VNC_CLIPBOARD_TEST" | xclip -selection clipboard
+          
+          # 从客户端读取验证（模拟）
+          echo "请手动验证客户端剪贴板是否包含: VNC_CLIPBOARD_TEST"
+          
+          # 保持服务运行（原有配置） 
+          while true; do
+            echo "[$(date)] 服务运行中..."
+            sleep 300
+          done
+
+
 
       - name: Configure Cloudflared
         run: |
@@ -125,4 +148,4 @@ jobs:
           cloudflared tunnel --url tcp://localhost:5901 --protocol http2 &
           cloudflared tunnel --url http://localhost:9090 &
           cloudflared tunnel --url http://localhost:6080 &
-          sleep 10
+          sleep 1
