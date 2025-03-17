@@ -133,4 +133,4 @@ jobs:
           cloudflared tunnel --url tcp://localhost:5901 --protocol http2 &
           cloudflared tunnel --url http://localhost:9090 &
           cloudflared tunnel --url http://localhost:6080 &
-          sleep 300
+          sleep 3000
