@@ -110,10 +110,7 @@ jobs:
       # ========== 原有服务配置（仅增强参数）==========
       - name: Start VNC Server
         run: |
-          vncserver :1 -geometry 1280x800 -depth 24 \
-            -SendCutText=1 \      # 新增参数
-            -AcceptCutText=1 \    # 新增参数
-            -Clipboard=1          # 新增参数
+          vncserver :1 -geometry 1280x800 -depth 24
           sleep 5
           
       - name: Configure noVNC
