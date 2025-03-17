@@ -120,20 +120,6 @@ jobs:
           ./utils/novnc_proxy --vnc localhost:5901 & # 严格保留原始注释
           echo "noVNC服务已启动：6080端口"
           
-      # ========== 新增剪贴板验证步骤 ==========
-      - name: Verify Clipboard
-        run: |
-          # 写入测试内容到服务器剪贴板
-          echo "VNC_CLIPBOARD_TEST" | xclip -selection clipboard
-          
-          # 从客户端读取验证（模拟）
-          echo "请手动验证客户端剪贴板是否包含: VNC_CLIPBOARD_TEST"
-          
-          # 保持服务运行（原有配置） 
-          while true; do
-            echo "[$(date)] 服务运行中..."
-            sleep 300
-          done
 
 
 
@@ -147,4 +133,4 @@ jobs:
           cloudflared tunnel --url tcp://localhost:5901 --protocol http2 &
           cloudflared tunnel --url http://localhost:9090 &
           cloudflared tunnel --url http://localhost:6080 &
-          sleep 1
+          sleep 300
