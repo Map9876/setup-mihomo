@@ -83,8 +83,8 @@ jobs:
 
           # 配置VNC剪贴板（不修改密码）
           mkdir -p ~/.vnc
-          echo "password" | vncpasswd -f > ~/.vnc/passwd
-          chmod 777 ~/.vnc/passwd
+          echo "MySecurePassword123" | vncpasswd -f > ~/.vnc/passwd
+          chmod 600 ~/.vnc/passwd
           echo -e "SendPrimary=1\nAcceptCutText=1\nSendCutText=1" > ~/.vnc/config
           
           
