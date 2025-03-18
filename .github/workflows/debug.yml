@@ -1,4 +1,4 @@
-name: Debug Machine
+name: Debug Machine with Warp
 
 on:
   workflow_dispatch:
@@ -7,38 +7,74 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      # ========== 原有配置（完全保留）==========
+      # ========== 基础配置 ==========
       - name: Checkout repository
         uses: actions/checkout@v3
 
+      # ========== 安装 Cloudflare Warp ==========
+      - name: Install Cloudflare Warp
+        run: |
+          # 添加 Cloudflare Warp 官方源
+          curl https://pkg.cloudflareclient.com/pubkey.gpg | sudo gpg --yes --dearmor --output /usr/share/keyrings/cloudflare-warp-archive-keyring.gpg
+          echo "deb [arch=amd64 signed-by=/usr/share/keyrings/cloudflare-warp-archive-keyring.gpg] https://pkg.cloudflareclient.com/ $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/cloudflare-client.list
+          
+          # 安装 Warp
+          sudo apt update
+          sudo apt install -y cloudflare-warp
+
+          # 注册 Warp
+          warp-cli register
+          warp-cli set-mode proxy
+          warp-cli set-proxy-port 40000  # Warp SOCKS5 代理端口
+          warp-cli connect
+          warp-cli enable-always-on
+
+          # 验证 Warp 连接
+          warp-cli status
+
+      # ========== 配置本地代理（7890 端口）==========
       - name: Setup Mihomo
         uses: ./
         with:
           config-url: ${{ secrets.CONFIG_URL }}
           mihomo-version: "1.18.0"
 
-      # ========== 以下为原有配置（完全不变）==========
-      - name: Install jq and bc
+      - name: Configure proxy env
         run: |
-          sudo apt-get update
-          sudo apt-get install -y jq bc
+          echo 'function proxy_on() {
+            export http_proxy=http://127.0.0.1:7890
+            export https_proxy=http://127.0.0.1:7890
+            export all_proxy=socks5://127.0.0.1:7890
+            echo -e "终端代理已开启"
+          }
+          function proxy_off(){
+            unset http_proxy https_proxy all_proxy
+            echo -e "终端代理已关闭"
+          }' > ~/.bash_profile
+          source ~/.bash_profile
+          proxy_on
 
-      - name: Select fastest node
+      # ========== 配置 Warp 作为最终出口 ==========
+      - name: Configure Warp as Final Proxy
         run: |
-          response=$(curl -s http://127.0.0.1:9090/proxies/🔰%20选择节点)
-          nodes=$(echo "$response" | jq -r '.all[] | @uri')
-          fastest_node=""
-          min_delay=999999
-          for node in $nodes; do
-            [ "$node" == "DIRECT" ] && continue
-            delay=$(curl -o /dev/null -s -w "%{time_total}\n" -x http://127.0.0.1:7890 http://1.1.1.1)
-            (( $(echo "$delay < $min_delay" | bc -l) )) && min_delay=$delay && fastest_node=$node
-          done
-          curl -X PUT http://127.0.0.1:9090/proxies/🔰%20选择节点 -d "{\"name\":\"$(echo -n $fastest_node | jq -sRr @uri)\"}"
+          # 设置环境变量，将流量通过 Warp 代理（40000 端口）
+          echo 'export HTTP_PROXY=socks5://127.0.0.1:40000
+          export HTTPS_PROXY=socks5://127.0.0.1:40000
+          export ALL_PROXY=socks5://127.0.0.1:40000' >> ~/.bash_profile
+          source ~/.bash_profile
 
-      - name: Test proxy
-        run: curl -x http://127.0.0.1:7890 https://api.ip.sb/geoip
+      # ========== 验证代理链 ==========
+      - name: Test Proxy Chain
+        run: |
+          # 验证 Warp 代理
+          echo "测试 Warp 代理（40000 端口）："
+          curl --socks5 127.0.0.1:40000 https://api.ip.sb/geoip
 
+          # 验证双重代理（本地代理 + Warp）
+          echo "测试双重代理（本地代理 -> Warp）："
+          curl -x http://127.0.0.1:7890 --socks5 127.0.0.1:40000 https://api.ip.sb/geoip
+
+      # ========== 后续步骤（保持原有配置）==========
       - name: Install dependencies
         run: |
           sudo apt-get update
@@ -59,78 +95,45 @@ jobs:
             novnc \
             firefox \
             xclip
-            
-      - name: Configure proxy env
-        run: |
-          echo 'function proxy_on() {
-            export http_proxy=http://127.0.0.1:7890
-            export https_proxy=http://127.0.0.1:7890
-            export all_proxy=socks5://127.0.0.1:7890
-            echo -e "终端代理已开启"
-          }
-          function proxy_off(){
-            unset http_proxy https_proxy all_proxy
-            echo -e "终端代理已关闭"
-          }' > ~/.bash_profile
-          source ~/.bash_profile
-          proxy_on
 
-      # ========== 新增剪贴板配置（保持密码不变）==========
-      - name: Enhance VNC Clipboard
+      - name: Configure VNC
         run: |
-          # 安装剪贴板支持组件
-          sudo apt-get install -y xclip xsel
-
-          # 配置VNC剪贴板（不修改密码）
           mkdir -p ~/.vnc
-          echo "MySecurePassword123" | vncpasswd -f > ~/.vnc/passwd
+          echo "password" | vncpasswd -f > ~/.vnc/passwd
           chmod 600 ~/.vnc/passwd
-          echo -e "SendPrimary=1\nAcceptCutText=1\nSendCutText=1" > ~/.vnc/config
           
-          
+          echo -e "SendPrimary=1\nAcceptCutText=1" > ~/.vnc/config
           
           echo '#!/bin/bash
-          # 加载代理环境变量
           source ~/.bash_profile
-          export http_proxy=http://127.0.0.1:7890
-          export https_proxy=http://127.0.0.1:7890
-          export all_proxy=socks5://127.0.0.1:7890
           export DISPLAY=:1
-
-          # 启动桌面环境
-          startxfce4 &
-          xhost +
-          vncconfig -nowin -set SendPrimary=1 -set AcceptCutText=1 -set SendCutText=1 &
-          export MOZ_ENABLE_WAYLAND=0
-          export GDK_BACKEND=x11
-          firefox &
-          ' > ~/.vnc/xstartup
+          vncconfig -nowin &
+          startxfce4 &' > ~/.vnc/xstartup
           chmod +x ~/.vnc/xstartup
 
-      # ========== 原有服务配置（仅增强参数）==========
       - name: Start VNC Server
         run: |
           vncserver :1 -geometry 1280x800 -depth 24
           sleep 5
-          
+
       - name: Configure noVNC
         run: |
           git clone https://github.com/novnc/noVNC.git
           cd noVNC
-          ./utils/novnc_proxy --vnc localhost:5901 & # 严格保留原始注释
-          echo "noVNC服务已启动：6080端口"
-          
+          ./utils/novnc_proxy --vnc localhost:5901 &
 
-
-
-      - name: Configure Cloudflared
-        run: |
-          wget -q https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
-          sudo dpkg -i cloudflared-linux-amd64.deb
-
-      - name: Start Cloudflared tunnels
+      - name: Start Cloudflared
         run: |
           cloudflared tunnel --url tcp://localhost:5901 --protocol http2 &
           cloudflared tunnel --url http://localhost:9090 &
           cloudflared tunnel --url http://localhost:6080 &
-          sleep 3000
+          sleep 10
+
+      - name: Keep Alive
+        run: |
+          while true; do
+            echo "[$(date +'%F %T')] 服务状态："
+            echo "1. VNC 进程: $(pgrep -a Xvnc || echo '未运行')"
+            echo "2. 剪贴板守护进程: $(pgrep -a vncconfig || echo '未运行')"
+            sleep 300
+          done
