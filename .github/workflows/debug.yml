@@ -1,4 +1,4 @@
-name: Debug Machine with Warp
+name: Debug Machine with Warp and Mihomo
 
 on:
   workflow_dispatch:
@@ -11,40 +11,64 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      # ========== 安装 Cloudflare Warp ==========
-      - name: Install Cloudflare Warp
+      # ========== 安装依赖 ==========
+      - name: Install dependencies
         run: |
-          # 添加 Cloudflare Warp 官方源
-          curl https://pkg.cloudflareclient.com/pubkey.gpg | sudo gpg --yes --dearmor --output /usr/share/keyrings/cloudflare-warp-archive-keyring.gpg
-          echo "deb [arch=amd64 signed-by=/usr/share/keyrings/cloudflare-warp-archive-keyring.gpg] https://pkg.cloudflareclient.com/ $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/cloudflare-client.list
-          
-          # 安装 Warp
-          sudo apt update
-          sudo apt install -y cloudflare-warp 
-          sudo apt install -y expect
+          sudo apt-get update
+          sudo apt-get install -y \
+            curl \
+            jq \
+            wireguard \
+            resolvconf
 
-          # 注册 Warp
-          expect <<EOF
-          spawn warp-cli registration new -- --accept-tos
-          expect "Do you accept the Terms of Service? (Y/n)"
-          send "Y\r"
-          expect eof
-          EOF
-          warp-cli set-mode proxy
-          warp-cli set-proxy-port 40000  # Warp SOCKS5 代理端口
-          warp-cli connect
-          warp-cli enable-always-on
+      # ========== 安装 wgcf ==========
+      - name: Install wgcf
+        run: |
+          # 下载 wgcf
+          curl -fsSL https://github.com/ViRb3/wgcf/releases/download/v2.2.18/wgcf_2.2.18_linux_amd64 -o wgcf
+          chmod +x wgcf
+          sudo mv wgcf /usr/local/bin/wgcf
 
-          # 验证 Warp 连接
-          warp-cli status
+      # ========== 注册 Warp 并生成 WireGuard 配置文件 ==========
+      - name: Register Warp and generate WireGuard config
+        run: |
+          # 注册 Warp 账户
+          wgcf register --accept-tos -o wgcf-account.toml
 
-      # ========== 配置本地代理（7890 端口）==========
+          # 生成 WireGuard 配置文件
+          wgcf generate -o wgcf-profile.conf
+
+          # 修改 WireGuard 配置文件，确保接口名称为 wg0
+          sed -i 's/^\[Interface\]$/\[Interface\]\nName = wg0/' wgcf-profile.conf
+
+          # 将配置文件移动到 WireGuard 的配置目录
+          sudo mv wgcf-profile.conf /etc/wireguard/wg0.conf
+
+          # 启动 WireGuard 接口
+          sudo wg-quick up wg0
+
+          # 验证 WireGuard 连接
+          sudo wg show
+
+      # ========== 配置 Mihomo 本地代理 ==========
       - name: Setup Mihomo
         uses: ./
         with:
           config-url: ${{ secrets.CONFIG_URL }}
           mihomo-version: "1.18.0"
 
+      - name: Configure Mihomo to use WireGuard
+        run: |
+          # 设置 Mihomo 的出口为 WireGuard 接口
+          echo "设置 Mihomo 的出口为 WireGuard 接口..."
+          sudo ip route add default dev wg0 table 200
+          sudo ip rule add from all lookup 200
+
+          # 验证路由规则
+          echo "当前路由规则："
+          ip route show table 200
+
+      # ========== 配置本地代理环境变量 ==========
       - name: Configure proxy env
         run: |
           echo 'function proxy_on() {
@@ -60,37 +84,18 @@ jobs:
           source ~/.bash_profile
           proxy_on
 
-      # ========== 配置 Warp 作为最终出口 ==========
-      - name: Configure Warp as Final Proxy
-        run: |
-          # 设置环境变量，将流量通过 Warp 代理（40000 端口）
-          echo 'export HTTP_PROXY=socks5://127.0.0.1:40000
-          export HTTPS_PROXY=socks5://127.0.0.1:40000
-          export ALL_PROXY=socks5://127.0.0.1:40000' >> ~/.bash_profile
-          source ~/.bash_profile
-
       # ========== 验证代理链 ==========
       - name: Test Proxy Chain
         run: |
-          # 验证 Warp 代理
-          echo "测试 Warp 代理（40000 端口）："
-          curl --socks5 127.0.0.1:40000 https://api.ip.sb/geoip
+          # 验证 Mihomo 代理
+          echo "测试 Mihomo 代理（7890 端口）："
+          curl -x http://127.0.0.1:7890 https://api.ip.sb/geoip
 
-          # 验证双重代理（本地代理 + Warp）
-          echo "测试双重代理（本地代理 -> Warp）："
-          curl -x http://127.0.0.1:7890 --socks5 127.0.0.1:40000 https://api.ip.sb/geoip
+          # 验证双重代理（Mihomo -> WireGuard）
+          echo "测试双重代理（Mihomo -> WireGuard）："
+          curl -x http://127.0.0.1:7890 https://api.ip.sb/geoip
 
       # ========== 后续步骤（保持原有配置）==========
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            apt-transport-https \
-            ca-certificates \
-            curl \
-            gnupg \
-            lsb-release
-
       - name: Install VNC and Desktop
         run: |
           sudo apt-get update
