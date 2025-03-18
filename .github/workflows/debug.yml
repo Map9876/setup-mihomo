@@ -23,7 +23,7 @@ jobs:
           sudo apt install -y cloudflare-warp
 
           # 注册 Warp
-          warp-cli register
+          warp-cli registration new
           warp-cli set-mode proxy
           warp-cli set-proxy-port 40000  # Warp SOCKS5 代理端口
           warp-cli connect
