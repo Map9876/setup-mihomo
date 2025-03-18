@@ -20,10 +20,16 @@ jobs:
           
           # 安装 Warp
           sudo apt update
-          sudo apt install -y cloudflare-warp
+          sudo apt install -y cloudflare-warp 
+          sudo apt install -y expect
 
           # 注册 Warp
-          echo "Y" | warp-cli registration new -- --accept-tos
+          expect <<EOF
+          spawn warp-cli registration new --accept-tos
+          expect "Do you accept the Terms of Service? (Y/n)"
+          send "Y\r"
+          expect eof
+          EOF
           warp-cli set-mode proxy
           warp-cli set-proxy-port 40000  # Warp SOCKS5 代理端口
           warp-cli connect
