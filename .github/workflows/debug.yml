@@ -108,7 +108,11 @@ jobs:
           source ~/.bash_profile
           export DISPLAY=:1
           vncconfig -nowin &
-          startxfce4 &' > ~/.vnc/xstartup
+          #startxfce4 &' 
+          sleep 5
+          xhost +
+          firefox
+          > ~/.vnc/xstartup
           chmod +x ~/.vnc/xstartup
 
       - name: Start VNC Server
