@@ -25,7 +25,7 @@ jobs:
 
           # 注册 Warp
           expect <<EOF
-          spawn warp-cli registration new --accept-tos
+          spawn warp-cli registration new -- --accept-tos
           expect "Do you accept the Terms of Service? (Y/n)"
           send "Y\r"
           expect eof
