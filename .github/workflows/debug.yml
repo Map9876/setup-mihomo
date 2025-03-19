@@ -42,7 +42,8 @@ jobs:
           sudo mv wgcf-profile.conf /etc/wireguard/wg0.conf
 
           # 启动 WireGuard 接口
-          sudo wg-quick up wg0
+          sudo wg-quick up wg0 &
+          sleep 5
 
           # 验证 WireGuard 连接
           sudo wg show
