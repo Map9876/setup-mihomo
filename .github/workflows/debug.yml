@@ -51,24 +51,39 @@ jobs:
           ip route show
           curl --interface wg0 -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36" https://api.ip.sb/geoip
 
-
       # ========== 配置 Mihomo 本地代理 ==========
       - name: Setup Mihomo
-        uses: ./
-        with:
-          config-url: ${{ secrets.CONFIG_URL }}
-          mihomo-version: "1.18.0"
-
-      - name: Configure Mihomo to use WireGuard
         run: |
-          # 设置 Mihomo 的出口为 WireGuard 接口
-          echo "设置 Mihomo 的出口为 WireGuard 接口..."
-          sudo ip route add default dev wg0 table 200
-          sudo ip rule add from all lookup 200
+          # 下载 Mihomo
+          wget https://github.com/MetaCubeX/mihomo/releases/download/v1.18.0/mihomo-linux-amd64-v1.18.0.gz
+          gzip -d mihomo-linux-amd64-v1.18.0.gz
+          chmod +x mihomo-linux-amd64-v1.18.0
+          sudo mv mihomo-linux-amd64-v1.18.0 /usr/local/bin/mihomo
 
-          # 验证路由规则
-          echo "当前路由规则："
-          ip route show table 200
+          # 创建 Mihomo 配置文件
+          cat <<EOF > config.yaml
+          port: 7890
+          socks-port: 7891
+          redir-port: 7892
+          allow-lan: false
+          mode: Rule
+          log-level: info
+          external-controller: 127.0.0.1:9090
+
+          proxies:
+            - name: "WireGuard"
+              type: socks5
+              server: 127.0.0.1
+              port: 51820
+              skip-cert-verify: true
+
+          rules:
+            - MATCH,WireGuard
+          EOF
+
+          # 启动 Mihomo
+          nohup mihomo -d -f config.yaml > /tmp/mihomo.log 2>&1 &
+          sleep 5
 
       # ========== 配置本地代理环境变量 ==========
       - name: Configure proxy env
@@ -85,6 +100,49 @@ jobs:
           }' > ~/.bash_profile
           source ~/.bash_profile
           proxy_on
+
+      # ========== 动态选择最快节点 ==========
+      - name: Select fastest node
+        run: |
+          # 获取所有节点信息
+          response=$(curl -s http://127.0.0.1:9090/proxies/🔰%20选择节点)
+          echo "所有节点信息: $response"
+
+          # 提取节点名称并进行 URL 编码
+          nodes=$(echo "$response" | jq -r '.all[] | @uri')
+          echo "可用节点: $nodes"
+
+          # 测试每个节点的延迟
+          fastest_node=""
+          min_delay=999999
+          for node in $nodes; do
+            # 跳过 DIRECT 节点
+            if [ "$node" == "DIRECT" ]; then
+              echo "跳过 DIRECT 节点"
+              continue
+            fi
+            echo "测试节点: $node"
+
+            # 测试节点延迟
+            delay=$(curl -o /dev/null -s -w "%{time_total}\n" -x http://127.0.0.1:7890 http://1.1.1.1 --connect-timeout 10 --max-time 10)
+            if [ $? -ne 0 ]; then
+              echo "节点 $node 不可用，跳过"
+              continue
+            fi
+            echo "节点 $node 的延迟: $delay 秒"
+
+            # 比较延迟，选择最快的节点
+            if (( $(echo "$delay < $min_delay" | bc -l) )); then
+              min_delay=$delay
+              fastest_node=$node
+            fi
+          done
+
+          echo "最快节点: $fastest_node, 延迟: $min_delay 秒"
+
+          # 选择最快节点
+          curl -X PUT http://127.0.0.1:9090/proxies/🔰%20选择节点 -d "{\"name\":\"$(echo -n $fastest_node | jq -sRr @uri)\"}"
+          echo "已选择最快节点: $fastest_node"
 
       # ========== 验证代理链 ==========
       - name: Test Proxy Chain
@@ -114,14 +172,14 @@ jobs:
           mkdir -p ~/.vnc
           echo "password" | vncpasswd -f > ~/.vnc/passwd
           chmod 600 ~/.vnc/passwd
-          
+
           echo -e "SendPrimary=1\nAcceptCutText=1" > ~/.vnc/config
-          
+
           echo '#!/bin/bash
           source ~/.bash_profile
           export DISPLAY=:1
           vncconfig -nowin &
-          #startxfce4 &' 
+          #startxfce4 &'
           sleep 5
           xhost +
           firefox
