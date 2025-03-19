@@ -47,6 +47,10 @@ jobs:
 
           # 验证 WireGuard 连接
           sudo wg show
+          # 检查 WireGuard 接口状态
+          ip route show
+          curl https://api.ip.sb/geoip
+
 
       # ========== 配置 Mihomo 本地代理 ==========
       - name: Setup Mihomo
