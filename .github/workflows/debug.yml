@@ -38,9 +38,6 @@ jobs:
           # 生成 WireGuard 配置文件
           wgcf generate --config wgcf-account.toml --profile wgcf-profile.conf
 
-          # 修改 WireGuard 配置文件，确保接口名称为 wg0
-          sed -i 's/^\[Interface\]$/\[Interface\]\nName = wg0/' wgcf-profile.conf
-
           # 将配置文件移动到 WireGuard 的配置目录
           sudo mv wgcf-profile.conf /etc/wireguard/wg0.conf
 
