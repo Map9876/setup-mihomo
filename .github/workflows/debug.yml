@@ -34,16 +34,28 @@ jobs:
           wgcf register --accept-tos --config wgcf-account.toml
           wgcf generate --config wgcf-account.toml --profile wgcf-profile.conf
 
-          # 修改 WireGuard 配置文件
-          echo "PostUp = ip rule add from 172.16.0.2 lookup main" | sudo tee -a /etc/wireguard/wgcf-profile.conf
-          echo "PostDown = ip rule delete from 172.16.0.2 lookup main" | sudo tee -a /etc/wireguard/wgcf-profile.conf
-
+          # 将配置文件移动到 WireGuard 的配置目录
           sudo mv wgcf-profile.conf /etc/wireguard/wg0.conf
+
+          # 启动 WireGuard 接口
           sudo wg-quick up wg0 &
           sleep 5
+
+          # 获取 WireGuard 接口的 IP 地址
+          wg_ip=$(ip -4 addr show wg0 | grep -oP '(?<=inet\s)\d+(\.\d+){3}')
+
+          # 修改 WireGuard 配置文件
+          sudo sed -i "/\[Interface\]/a PostUp = ip rule add from $wg_ip lookup main" /etc/wireguard/wg0.conf
+          sudo sed -i "/\[Interface\]/a PostDown = ip rule delete from $wg_ip lookup main" /etc/wireguard/wg0.conf
+
+          # 重启 WireGuard 接口
+          sudo wg-quick down wg0
+          sudo wg-quick up wg0
+
+          # 验证 WireGuard 连接
           sudo wg show
           ip route show
-          curl --interface wg0 https://api.ip.sb/geoip
+          curl --interface wg0 -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36" https://api.ip.sb/geoip
 
       # ========== 配置 Mihomo 本地代理 ==========
       - name: Setup Mihomo
@@ -86,7 +98,7 @@ jobs:
             fi
             echo "测试节点: $node"
 
-            delay=$(curl -o /dev/null -s -w "%{time_total}\n" -x http://127.0.0.1:7890 http://1.1.1.1 --connect-timeout 10 --max-time 10)
+            delay=$(curl -o /dev/null -s -w "%{time_total}\n" -x http://127.0.0.1:7890 -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36" http://1.1.1.1 --connect-timeout 10 --max-time 10)
             if [ $? -ne 0 ]; then
               echo "节点 $node 不可用，跳过"
               continue
@@ -107,10 +119,10 @@ jobs:
       - name: Test Proxy Chain
         run: |
           echo "测试 Mihomo 代理（7890 端口）："
-          curl -x http://127.0.0.1:7890 https://api.ip.sb/geoip
+          curl -x http://127.0.0.1:7890 -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36" https://api.ip.sb/geoip
 
           echo "测试双重代理（Mihomo -> WireGuard）："
-          curl -x http://127.0.0.1:7890 https://api.ip.sb/geoip
+          curl -x http://127.0.0.1:7890 -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36" https://api.ip.sb/geoip
 
       # ========== 后续步骤（保持原有配置）==========
       - name: Install VNC and Desktop
