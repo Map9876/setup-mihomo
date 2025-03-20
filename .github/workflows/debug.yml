@@ -35,12 +35,13 @@ jobs:
           wgcf generate --config wgcf-account.toml --profile wgcf-profile.conf &
           sleep 10
           # 将配置文件移动到 WireGuard 的配置目录
-          sudo mv wgcf-profile.conf /etc/wireguard/wg0.conf
+          sudo cp wgcf-profile.conf /etc/wireguard/wg0.conf
 
           # 启动 WireGuard 接口
           sudo wg-quick up wg0 &
           sleep 5
-
+          echo "wgcf-profile.conf下面↓"
+          cat wgcf-profile.conf
           # 验证 WireGuard 连接
           sudo wg show &
           ip route show &
