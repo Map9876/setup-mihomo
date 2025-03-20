@@ -49,11 +49,38 @@ jobs:
 
       # ========== 配置 Mihomo 本地代理 ==========
       - name: Setup Mihomo
-        uses: ./
-        with:
-          config-url: ${{ secrets.CONFIG_URL }}
-          mihomo-version: "1.18.0"
+        shell: bash
+        run: |
+          mkdir -p .mihomo
+          cd .mihomo
+          wget -q https://github.com/MetaCubeX/mihomo/releases/download/v1.18.0/mihomo-linux-amd64-v1.18.0.gz
+          gzip -d mihomo-linux-amd64-v1.18.0.gz
+          mv mihomo-linux-amd64-v${{ inputs.mihomo-version }} mihomo
+          chmod +x mihomo
 
+      - name: Write YAML config file
+        shell: bash
+        run: |
+          cd .mihomo
+          wget -q -O config.yaml ${{ secrets.CONFIG_URL }}
+
+      - name: Download Web UI (Yacd)bash  
+        shell: bash
+        run: |
+          wget https://github.com/haishanh/yacd/releases/download/v0.3.8/yacd.tar.xz
+          tar -xJvf yacd.tar.xz
+          mv public yacd
+          mkdir -p .mihomo/ui
+          mv yacd/* .mihomo/ui/
+
+      - name: Start mihomo with Web UI
+        shell: bash
+        run: |
+          cd .mihomo
+          echo "external-ui: ui" >> config.yaml
+          ./mihomo -d . -f config.yaml &
+        
+        
       # ========== 配置路由规则 ==========
       - name: Configure routing rules
         run: |
