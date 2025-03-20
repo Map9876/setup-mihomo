@@ -42,9 +42,9 @@ jobs:
           sleep 5
 
           # 验证 WireGuard 连接
-          sudo wg show
-          ip route show
-          curl --interface wg0 -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36" https://api.ip.sb/geoip
+          sudo wg show &
+          ip route show &
+          curl --interface wg0 -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36" https://api.ip.sb/geoip &
 
       # ========== 配置 Mihomo 本地代理 ==========
       - name: Setup Mihomo
