@@ -24,7 +24,6 @@ jobs:
       # ========== 安装 wgcf ==========
       - name: Install wgcf
         run: |
-          # 下载 wgcf
           curl -fsSL https://github.com/ViRb3/wgcf/releases/download/v2.2.18/wgcf_2.2.18_linux_amd64 -o wgcf
           chmod +x wgcf
           sudo mv wgcf /usr/local/bin/wgcf
@@ -32,58 +31,26 @@ jobs:
       # ========== 注册 Warp 并生成 WireGuard 配置文件 ==========
       - name: Register Warp and generate WireGuard config
         run: |
-          # 注册 Warp 账户
           wgcf register --accept-tos --config wgcf-account.toml
-
-          # 生成 WireGuard 配置文件
           wgcf generate --config wgcf-account.toml --profile wgcf-profile.conf
 
-          # 将配置文件移动到 WireGuard 的配置目录
-          sudo mv wgcf-profile.conf /etc/wireguard/wg0.conf
+          # 修改 WireGuard 配置文件
+          echo "PostUp = ip rule add from 172.16.0.2 lookup main" | sudo tee -a /etc/wireguard/wgcf-profile.conf
+          echo "PostDown = ip rule delete from 172.16.0.2 lookup main" | sudo tee -a /etc/wireguard/wgcf-profile.conf
 
-          # 启动 WireGuard 接口
+          sudo mv wgcf-profile.conf /etc/wireguard/wg0.conf
           sudo wg-quick up wg0 &
           sleep 5
-
-          # 验证 WireGuard 连接
           sudo wg show
-          # 检查 WireGuard 接口状态
           ip route show
-          curl --interface wg0 -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36" https://api.ip.sb/geoip
+          curl --interface wg0 https://api.ip.sb/geoip
 
       # ========== 配置 Mihomo 本地代理 ==========
       - name: Setup Mihomo
-        run: |
-          # 下载 Mihomo
-          wget https://github.com/MetaCubeX/mihomo/releases/download/v1.18.0/mihomo-linux-amd64-v1.18.0.gz
-          gzip -d mihomo-linux-amd64-v1.18.0.gz
-          chmod +x mihomo-linux-amd64-v1.18.0
-          sudo mv mihomo-linux-amd64-v1.18.0 /usr/local/bin/mihomo
-
-          # 创建 Mihomo 配置文件
-          cat <<EOF > config.yaml
-          port: 7890
-          socks-port: 7891
-          redir-port: 7892
-          allow-lan: false
-          mode: Rule
-          log-level: info
-          external-controller: 127.0.0.1:9090
-
-          proxies:
-            - name: "WireGuard"
-              type: socks5
-              server: 127.0.0.1
-              port: 51820
-              skip-cert-verify: true
-
-          rules:
-            - MATCH,WireGuard
-          EOF
-
-          # 启动 Mihomo
-          nohup mihomo -d -f config.yaml > /tmp/mihomo.log 2>&1 &
-          sleep 5
+        uses: ./
+        with:
+          config-url: ${{ secrets.CONFIG_URL }}
+          mihomo-version: "1.18.0"
 
       # ========== 配置本地代理环境变量 ==========
       - name: Configure proxy env
@@ -104,26 +71,21 @@ jobs:
       # ========== 动态选择最快节点 ==========
       - name: Select fastest node
         run: |
-          # 获取所有节点信息
           response=$(curl -s http://127.0.0.1:9090/proxies/🔰%20选择节点)
           echo "所有节点信息: $response"
 
-          # 提取节点名称并进行 URL 编码
           nodes=$(echo "$response" | jq -r '.all[] | @uri')
           echo "可用节点: $nodes"
 
-          # 测试每个节点的延迟
           fastest_node=""
           min_delay=999999
           for node in $nodes; do
-            # 跳过 DIRECT 节点
             if [ "$node" == "DIRECT" ]; then
               echo "跳过 DIRECT 节点"
               continue
             fi
             echo "测试节点: $node"
 
-            # 测试节点延迟
             delay=$(curl -o /dev/null -s -w "%{time_total}\n" -x http://127.0.0.1:7890 http://1.1.1.1 --connect-timeout 10 --max-time 10)
             if [ $? -ne 0 ]; then
               echo "节点 $node 不可用，跳过"
@@ -131,27 +93,22 @@ jobs:
             fi
             echo "节点 $node 的延迟: $delay 秒"
 
-            # 比较延迟，选择最快的节点
-            if (( $(echo "$delay < $min_delay" | bc -l) )); then
+            if (( $(echo "$delay < $min_delay" | bc -l) ); then
               min_delay=$delay
               fastest_node=$node
             fi
           done
 
           echo "最快节点: $fastest_node, 延迟: $min_delay 秒"
-
-          # 选择最快节点
           curl -X PUT http://127.0.0.1:9090/proxies/🔰%20选择节点 -d "{\"name\":\"$(echo -n $fastest_node | jq -sRr @uri)\"}"
           echo "已选择最快节点: $fastest_node"
 
       # ========== 验证代理链 ==========
       - name: Test Proxy Chain
         run: |
-          # 验证 Mihomo 代理
           echo "测试 Mihomo 代理（7890 端口）："
           curl -x http://127.0.0.1:7890 https://api.ip.sb/geoip
 
-          # 验证双重代理（Mihomo -> WireGuard）
           echo "测试双重代理（Mihomo -> WireGuard）："
           curl -x http://127.0.0.1:7890 https://api.ip.sb/geoip
 
@@ -179,11 +136,7 @@ jobs:
           source ~/.bash_profile
           export DISPLAY=:1
           vncconfig -nowin &
-          #startxfce4 &'
-          sleep 5
-          xhost +
-          firefox
-          > ~/.vnc/xstartup
+          #startxfce4 &' > ~/.vnc/xstartup
           chmod +x ~/.vnc/xstartup
 
       - name: Start VNC Server
