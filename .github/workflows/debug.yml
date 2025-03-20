@@ -41,17 +41,6 @@ jobs:
           sudo wg-quick up wg0 &
           sleep 5
 
-          # 获取 WireGuard 接口的 IP 地址
-          wg_ip=$(ip -4 addr show wg0 | grep -oP '(?<=inet\s)\d+(\.\d+){3}')
-
-          # 修改 WireGuard 配置文件
-          sudo sed -i "/\[Interface\]/a PostUp = ip rule add from $wg_ip lookup main" /etc/wireguard/wg0.conf
-          sudo sed -i "/\[Interface\]/a PostDown = ip rule delete from $wg_ip lookup main" /etc/wireguard/wg0.conf
-
-          # 重启 WireGuard 接口
-          sudo wg-quick down wg0
-          sudo wg-quick up wg0
-
           # 验证 WireGuard 连接
           sudo wg show
           ip route show
@@ -63,6 +52,18 @@ jobs:
         with:
           config-url: ${{ secrets.CONFIG_URL }}
           mihomo-version: "1.18.0"
+
+      # ========== 配置路由规则 ==========
+      - name: Configure routing rules
+        run: |
+          # 添加路由规则，将 Mihomo 的出口流量通过 WireGuard 接口
+          sudo ip route add default dev wg0 table 200
+          sudo ip rule add from all lookup 200
+
+          # 验证路由规则
+          echo "当前路由规则："
+          ip route show table 200
+          ip rule list
 
       # ========== 配置本地代理环境变量 ==========
       - name: Configure proxy env
