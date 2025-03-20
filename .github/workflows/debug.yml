@@ -32,7 +32,7 @@ jobs:
       - name: Register Warp and generate WireGuard config
         run: |
           wgcf register --accept-tos --config wgcf-account.toml
-          wgcf generate --config wgcf-account.toml --profile wgcf-profile.conf
+          wgcf generate --config wgcf-account.toml --profile wgcf-profile.conf &
           cat wgcf-profile.conf
           echo "检查的"
 
