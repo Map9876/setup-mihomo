@@ -33,7 +33,7 @@ jobs:
         run: |
           wgcf register --accept-tos --config wgcf-account.toml
           wgcf generate --config wgcf-account.toml --profile wgcf-profile.conf &
-
+          sleep 10
           # 将配置文件移动到 WireGuard 的配置目录
           sudo mv wgcf-profile.conf /etc/wireguard/wg0.conf
 
