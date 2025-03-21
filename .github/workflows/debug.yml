@@ -55,7 +55,7 @@ jobs:
           cd .mihomo
           wget -q https://github.com/MetaCubeX/mihomo/releases/download/v1.18.0/mihomo-linux-amd64-v1.18.0.gz
           gzip -d mihomo-linux-amd64-v1.18.0.gz
-          mv mihomo-linux-amd64-v${{ inputs.mihomo-version }} mihomo
+          mv mihomo-linux-amd64-v1.18.0 mihomo
           chmod +x mihomo
 
       - name: Write YAML config file
