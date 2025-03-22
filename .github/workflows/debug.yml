@@ -48,15 +48,32 @@ jobs:
           curl --interface wg0 -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36" https://api.ip.sb/geoip &
 
       # ========== 配置 Mihomo 本地代理 ==========
+      # ========== 配置 Mihomo 本地代理 ==========
       - name: Setup Mihomo
         shell: bash
         run: |
+          echo "当前目录: $(pwd)"
           mkdir -p .mihomo
           cd .mihomo
+          echo "下载 Mihomo 文件..."
           wget -q https://github.com/MetaCubeX/mihomo/releases/download/v1.18.0/mihomo-linux-amd64-v1.18.0.gz
+          # 检查文件是否下载成功
+          if [ ! -f mihomo-linux-amd64-v1.18.0.gz ]; then
+            echo "文件下载失败！"
+            exit 1
+          fi
+          echo "解压文件..."
           gzip -d mihomo-linux-amd64-v1.18.0.gz
+          # 检查解压后的文件是否存在
+          if [ ! -f mihomo-linux-amd64-v1.18.0 ]; then
+            echo "文件解压失败！"
+            exit 1
+          fi
+          echo "重命名文件..."
           mv mihomo-linux-amd64-v1.18.0 mihomo
+          echo "设置可执行权限..."
           chmod +x mihomo
+          echo "Mihomo 安装完成！"
 
       - name: Write YAML config file
         shell: bash
