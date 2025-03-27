@@ -19,7 +19,8 @@ jobs:
             curl \
             jq \
             wireguard \
-            resolvconf
+            resolvconf \
+            gzip
 
       # ========== 安装 wgcf ==========
       - name: Install wgcf
@@ -31,54 +32,50 @@ jobs:
       # ========== 注册 Warp 并生成 WireGuard 配置文件 ==========
       - name: Register Warp and generate WireGuard config
         run: |
-          wgcf register --accept-tos --config wgcf-account.toml &
-          sleep 10
-          echo "检查点1"
-          wgcf generate --config wgcf-account.toml --profile wgcf-profile.conf &
-          sleep 10
-          echo "检查点2"
+          wgcf register --accept-tos --config wgcf-account.toml
+          wgcf generate --config wgcf-account.toml --profile wgcf-profile.conf
+          
+          # 修改配置文件以确保所有流量都走 WireGuard
+          sed -i 's/AllowedIPs = 0.0.0.0\/0/AllowedIPs = 0.0.0.0\/1, 128.0.0.0\/1/g' wgcf-profile.conf
+          sed -i 's/AllowedIPs = ::\/0/AllowedIPs = ::\/1, 8000::\/1/g' wgcf-profile.conf
+          
           # 将配置文件移动到 WireGuard 的配置目录
-          sudo cp wgcf-profile.conf /etc/wireguard/wg0.conf &
-          sleep 10
-          echo "检查点3"
-
+          sudo cp wgcf-profile.conf /etc/wireguard/wg0.conf
+          
           # 启动 WireGuard 接口
-          sudo wg-quick up wg0 &
-          sleep 5
-          echo "检查点4"
-          echo "wgcf-profile.conf下面↓"
-          cat wgcf-profile.conf
+          sudo wg-quick up wg0
+          
           # 验证 WireGuard 连接
-          sudo wg show &
-          sleep 10
-          echo "检查点5"
-          ip route show &
-          sleep 10
-          echo "检查点6"
-          curl --interface wg0 -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36" https://api.ip.sb/geoip &
-          echo "检查点7"
-      # ========== 配置 Mihomo 本地代理 ==========
+          sudo wg show
+          ip route show
+          curl --interface wg0 -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36" https://api.ip.sb/geoip
+
       # ========== 配置 Mihomo 本地代理 ==========
       - name: Setup Mihomo
-        shell: bash
         run: |
           echo "当前目录: $(pwd)"
           mkdir -p .mihomo
           cd .mihomo
           echo "下载 Mihomo 文件..."
-          wget -q https://github.com/MetaCubeX/mihomo/releases/download/v1.18.0/mihomo-linux-amd64-v1.18.0.gz
+          
+          # 使用 WireGuard 接口下载
+          curl --interface wg0 -L -o mihomo-linux-amd64-v1.18.0.gz https://github.com/MetaCubeX/mihomo/releases/download/v1.18.0/mihomo-linux-amd64-v1.18.0.gz
+          
           # 检查文件是否下载成功
           if [ ! -f mihomo-linux-amd64-v1.18.0.gz ]; then
             echo "文件下载失败！"
             exit 1
           fi
+          
           echo "解压文件..."
           gzip -d mihomo-linux-amd64-v1.18.0.gz
+          
           # 检查解压后的文件是否存在
           if [ ! -f mihomo-linux-amd64-v1.18.0 ]; then
             echo "文件解压失败！"
             exit 1
           fi
+          
           echo "重命名文件..."
           mv mihomo-linux-amd64-v1.18.0 mihomo
           echo "设置可执行权限..."
@@ -86,39 +83,30 @@ jobs:
           echo "Mihomo 安装完成！"
 
       - name: Write YAML config file
-        shell: bash
         run: |
           cd .mihomo
-          wget -q -O config.yaml ${{ secrets.CONFIG_URL }}
+          curl --interface wg0 -L -o config.yaml "${{ secrets.CONFIG_URL }}"
 
-      - name: Download Web UI (Yacd)bash  
-        shell: bash
+      - name: Download Web UI (Yacd)
         run: |
-          wget https://github.com/haishanh/yacd/releases/download/v0.3.8/yacd.tar.xz
+          curl --interface wg0 -L -o yacd.tar.xz https://github.com/haishanh/yacd/releases/download/v0.3.8/yacd.tar.xz
           tar -xJvf yacd.tar.xz
           mv public yacd
           mkdir -p .mihomo/ui
           mv yacd/* .mihomo/ui/
 
       - name: Start mihomo with Web UI
-        shell: bash
         run: |
           cd .mihomo
           echo "external-ui: ui" >> config.yaml
-          ./mihomo -d . -f config.yaml &
-        
-        
-      # ========== 配置路由规则 ==========
-      - name: Configure routing rules
-        run: |
-          # 添加路由规则，将 Mihomo 的出口流量通过 WireGuard 接口
+          
+          # 设置路由规则，确保 Mihomo 的出口流量通过 WireGuard
           sudo ip route add default dev wg0 table 200
-          sudo ip rule add from all lookup 200
-
-          # 验证路由规则
-          echo "当前路由规则："
-          ip route show table 200
-          ip rule list
+          sudo ip rule add fwmark 0xca6c lookup 200
+          
+          # 启动 Mihomo
+          ./mihomo -d . -f config.yaml &
+          sleep 10
 
       # ========== 配置本地代理环境变量 ==========
       - name: Configure proxy env
@@ -139,6 +127,9 @@ jobs:
       # ========== 动态选择最快节点 ==========
       - name: Select fastest node
         run: |
+          # 等待 Mihomo API 就绪
+          sleep 10
+          
           response=$(curl -s http://127.0.0.1:9090/proxies/🔰%20选择节点)
           echo "所有节点信息: $response"
 
@@ -231,5 +222,7 @@ jobs:
             echo "[$(date +'%F %T')] 服务状态："
             echo "1. VNC 进程: $(pgrep -a Xvnc || echo '未运行')"
             echo "2. 剪贴板守护进程: $(pgrep -a vncconfig || echo '未运行')"
+            echo "3. WireGuard 状态: $(sudo wg show)"
+            echo "4. Mihomo 进程: $(pgrep -a mihomo || echo '未运行')"
             sleep 300
           done
