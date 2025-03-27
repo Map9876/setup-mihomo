@@ -31,22 +31,32 @@ jobs:
       # ========== 注册 Warp 并生成 WireGuard 配置文件 ==========
       - name: Register Warp and generate WireGuard config
         run: |
-          wgcf register --accept-tos --config wgcf-account.toml
+          wgcf register --accept-tos --config wgcf-account.toml &
+          sleep 10
+          echo "检查点1"
           wgcf generate --config wgcf-account.toml --profile wgcf-profile.conf &
           sleep 10
+          echo "检查点2"
           # 将配置文件移动到 WireGuard 的配置目录
-          sudo cp wgcf-profile.conf /etc/wireguard/wg0.conf
+          sudo cp wgcf-profile.conf /etc/wireguard/wg0.conf &
+          sleep 10
+          echo "检查点3"
 
           # 启动 WireGuard 接口
           sudo wg-quick up wg0 &
           sleep 5
+          echo "检查点4"
           echo "wgcf-profile.conf下面↓"
           cat wgcf-profile.conf
           # 验证 WireGuard 连接
           sudo wg show &
+          sleep 10
+          echo "检查点5"
           ip route show &
+          sleep 10
+          echo "检查点6"
           curl --interface wg0 -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36" https://api.ip.sb/geoip &
-
+          echo "检查点7"
       # ========== 配置 Mihomo 本地代理 ==========
       # ========== 配置 Mihomo 本地代理 ==========
       - name: Setup Mihomo
